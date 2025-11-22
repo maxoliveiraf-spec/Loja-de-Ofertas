@@ -24,7 +24,6 @@ function App() {
     estimatedPrice: '',
     category: 'Eletrônicos',
     imageUrl: '',
-    videoUrl: '',
     description: ''
   });
 
@@ -34,7 +33,18 @@ function App() {
   useEffect(() => {
     const savedProducts = localStorage.getItem('products');
     if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
+      try {
+        const parsedProducts: Product[] = JSON.parse(savedProducts);
+        // DATA MIGRATION: Ensure all products have an ID to prevent delete bugs
+        const sanitizedProducts = parsedProducts.map(p => ({
+          ...p,
+          id: p.id || crypto.randomUUID() // Generate ID if missing from legacy data
+        }));
+        setProducts(sanitizedProducts);
+      } catch (e) {
+        console.error("Failed to parse products", e);
+        setProducts([]);
+      }
     }
     
     // Check if user was previously authorized in this session
@@ -148,7 +158,6 @@ function App() {
         category: formData.category,
         estimatedPrice: formData.estimatedPrice,
         imageUrl: formData.imageUrl,
-        videoUrl: formData.videoUrl,
         status: ProductStatus.READY,
         addedAt: Date.now()
       };
@@ -162,7 +171,6 @@ function App() {
         estimatedPrice: '',
         category: 'Eletrônicos',
         imageUrl: '',
-        videoUrl: '',
         description: ''
       });
       
@@ -175,9 +183,15 @@ function App() {
     }
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = (id: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default button behavior
+    e.stopPropagation(); // Stop event bubbling
+    
     if (window.confirm('Tem certeza que deseja remover este produto?')) {
-      setProducts(prev => prev.filter(p => p.id !== id));
+      setProducts(prev => {
+        const newProducts = prev.filter(p => p.id !== id);
+        return newProducts;
+      });
     }
   };
 
@@ -404,25 +418,9 @@ function App() {
                           placeholder="https://..."
                         />
                       </div>
-
-                       <div className="col-span-2">
-                        <label htmlFor="videoUrl" className="block text-xs font-semibold text-gray-600 uppercase mb-1">
-                          Vídeo Review (YouTube) - Opcional
-                        </label>
-                        <input
-                          type="text"
-                          name="videoUrl"
-                          id="videoUrl"
-                          value={formData.videoUrl}
-                          onChange={handleInputChange}
-                          className="bg-white text-gray-900 shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border-gray-300 rounded-md p-2.5 border transition-shadow"
-                          placeholder="https://www.youtube.com/watch?v=..."
-                        />
-                        <p className="mt-1 text-[10px] text-gray-400">Se preenchido, o vídeo substituirá a foto na vitrine.</p>
-                      </div>
                       
                       {/* Image Preview */}
-                      {formData.imageUrl && !formData.videoUrl && (
+                      {formData.imageUrl && (
                         <div className="col-span-2 bg-gray-100 p-4 rounded-lg flex justify-center">
                           <img src={formData.imageUrl} alt="Preview" className="h-40 object-contain rounded" onError={(e) => (e.currentTarget.style.display = 'none')} />
                         </div>
@@ -510,7 +508,8 @@ function App() {
                                 </svg>
                               </a>
                               <button
-                                onClick={() => handleDeleteProduct(product.id)}
+                                type="button"
+                                onClick={(e) => handleDeleteProduct(product.id, e)}
                                 className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
                                 title="Remover"
                               >

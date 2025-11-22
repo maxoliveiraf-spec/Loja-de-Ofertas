@@ -11,9 +11,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   // Helper to extract YouTube Embed URL
   const getYouTubeEmbedUrl = (url: string | undefined) => {
     if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    // Added support for 'shorts/' and ensuring robust ID extraction
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
     const match = url.match(regExp);
-    return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}?controls=1&modestbranding=1&rel=0` : null;
+    
+    // Ensure ID is 11 characters long
+    if (match && match[2].length === 11) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      // Using youtube-nocookie and adding origin parameter to fix Error 153
+      return `https://www.youtube-nocookie.com/embed/${match[2]}?controls=1&modestbranding=1&rel=0&playsinline=1&origin=${origin}`;
+    }
+    return null;
   };
 
   const embedUrl = getYouTubeEmbedUrl(product.videoUrl);
@@ -118,7 +126,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
              src={embedUrl} 
              title={product.title}
              className="w-full h-full object-cover"
-             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+             referrerPolicy="strict-origin-when-cross-origin"
              allowFullScreen
            ></iframe>
         ) : (
