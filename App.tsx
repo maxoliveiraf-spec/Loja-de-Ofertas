@@ -7,7 +7,7 @@ import { productService, isFirebaseConfigured } from './services/database';
 // --- CONSTANTS ---
 // IMPORTANTE: Substitua a string abaixo pelo seu CLIENT_ID criado no Google Cloud Console.
 // Sem isso, o login não funcionará em produção.
-const GOOGLE_CLIENT_ID = "105808186580202233977"; 
+const GOOGLE_CLIENT_ID = "14302060436-3nsfssbbrs3fgrphslk1g9nncura8nnb.apps.googleusercontent.com"; 
 const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
 
 function App() {
