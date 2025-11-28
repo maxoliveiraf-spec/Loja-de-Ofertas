@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { Product, ProductStatus } from './types';
+import { productService, isFirebaseConfigured } from './services/database';
 
 // --- CONSTANTS ---
 // IMPORTANTE: Substitua a string abaixo pelo seu CLIENT_ID criado no Google Cloud Console.
 // Sem isso, o login não funcionará em produção.
-// Exemplo: "123456789-abcde.apps.googleusercontent.com"
 const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE"; 
 const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
 
@@ -16,6 +16,9 @@ function App() {
   const [isAuthorized, setIsAuthorized] = useState(false); // Controls auth state
   const [filterCategory, setFilterCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // Database Error State
+  const [dbError, setDbError] = useState<string | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -29,35 +32,34 @@ function App() {
 
   const [addStatus, setAddStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-  // Load state from local storage on mount
+  // Load products from Firebase (Realtime)
   useEffect(() => {
-    const savedProducts = localStorage.getItem('products');
-    if (savedProducts) {
-      try {
-        const parsedProducts: Product[] = JSON.parse(savedProducts);
-        // DATA MIGRATION: Ensure all products have an ID to prevent delete bugs
-        const sanitizedProducts = parsedProducts.map(p => ({
-          ...p,
-          id: p.id || crypto.randomUUID() // Generate ID if missing from legacy data
-        }));
-        setProducts(sanitizedProducts);
-      } catch (e) {
-        console.error("Failed to parse products", e);
-        setProducts([]);
+    const unsubscribe = productService.subscribe(
+      (updatedProducts) => {
+        setProducts(updatedProducts);
+        setDbError(null); // Clear error on success
+      },
+      (error) => {
+        // Check for common permission error
+        if (error.code === 'permission-denied' || error.message.includes('Cloud Firestore API has not been used')) {
+          setDbError('api_disabled');
+        } else {
+          setDbError('general');
+        }
       }
-    }
-    
-    // Check if user was previously authorized in this session
+    );
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  // Check previous session auth
+  useEffect(() => {
     const sessionAuth = sessionStorage.getItem('isAuthorized');
     if (sessionAuth === 'true') {
       setIsAuthorized(true);
     }
   }, []);
-
-  // Save state to local storage whenever products change
-  useEffect(() => {
-    localStorage.setItem('products', JSON.stringify(products));
-  }, [products]);
 
   // Initialize Google Auth
   useEffect(() => {
@@ -139,9 +141,19 @@ function App() {
   };
 
   // Add Product Logic
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!isFirebaseConfigured) {
+      alert("ERRO: Firebase não configurado. Edite o arquivo services/database.ts com suas chaves.");
+      return;
+    }
+
+    if (dbError) {
+      alert("Erro: Banco de dados indisponível. Verifique o aviso no topo do site.");
+      return;
+    }
+
     // Basic Validation
     if (!formData.url || !formData.title || !formData.imageUrl) {
       setAddStatus('error');
@@ -150,8 +162,8 @@ function App() {
     }
 
     try {
-      const newProduct: Product = {
-        id: crypto.randomUUID(),
+      // Create product object (ID is handled by Firebase)
+      const newProductData = {
         url: formData.url,
         title: formData.title,
         description: formData.description || "Sem descrição.",
@@ -162,7 +174,7 @@ function App() {
         addedAt: Date.now()
       };
 
-      setProducts(prev => [newProduct, ...prev]);
+      await productService.add(newProductData);
       
       // Reset form
       setFormData({
@@ -178,20 +190,33 @@ function App() {
       setTimeout(() => setAddStatus('idle'), 3000);
     } catch (err) {
       console.error(err);
+      alert("Erro ao salvar no banco de dados. Verifique o console.");
       setAddStatus('error');
       setTimeout(() => setAddStatus('idle'), 3000);
     }
   };
 
-  const handleDeleteProduct = (id: string, e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default button behavior
-    e.stopPropagation(); // Stop event bubbling
+  const handleDeleteProduct = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault(); 
+    e.stopPropagation(); 
     
+    if (!isFirebaseConfigured) {
+      alert("Firebase não configurado.");
+      return;
+    }
+    
+    if (dbError) {
+      alert("Erro: Banco de dados indisponível. Ative o Firestore no console do Firebase.");
+      return;
+    }
+
     if (window.confirm('Tem certeza que deseja remover este produto?')) {
-      setProducts(prev => {
-        const newProducts = prev.filter(p => p.id !== id);
-        return newProducts;
-      });
+      try {
+        await productService.delete(id);
+      } catch (error) {
+        console.error("Erro ao deletar:", error);
+        alert("Erro ao deletar produto. Verifique sua conexão ou permissões.");
+      }
     }
   };
 
@@ -225,10 +250,49 @@ function App() {
         onSearchChange={setSearchQuery}
       />
 
+      {/* Database Error Banners */}
+      {dbError === 'api_disabled' && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-4 text-center">
+          <p className="text-sm text-red-800 font-bold mb-2">
+            🛑 AÇÃO NECESSÁRIA: O Banco de Dados (Firestore) ainda não foi ativado.
+          </p>
+          <a 
+            href="https://console.firebase.google.com/project/lojaofertas-73c65/firestore" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-block px-4 py-2 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 transition-colors"
+          >
+            CLIQUE AQUI PARA ATIVAR O BANCO DE DADOS
+          </a>
+          <p className="text-xs text-red-600 mt-2">
+            No painel do Firebase, clique em <strong>"Criar banco de dados"</strong> e selecione <strong>"Modo de teste"</strong>.
+          </p>
+        </div>
+      )}
+
+      {dbError === 'general' && (
+        <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 text-center">
+          <p className="text-sm text-orange-800">
+            ⚠️ Erro de conexão com o banco de dados. Verifique sua internet ou as regras do Firebase.
+          </p>
+        </div>
+      )}
+
+      {/* Configuration Warning Banner (only if keys are missing) */}
+      {!isFirebaseConfigured && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-3 text-center">
+          <p className="text-sm text-yellow-800 font-medium">
+            ⚠️ <strong>Atenção:</strong> O banco de dados não está conectado. 
+            <br className="sm:hidden" /> 
+            Configure o arquivo <code className="bg-yellow-100 px-1 py-0.5 rounded text-yellow-900">services/database.ts</code> com suas chaves do Firebase.
+          </p>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Category Filter - Cleaner Look */}
+        {/* Category Filter */}
         <div className="mb-10 border-b border-gray-200 pb-1">
           <div className="flex space-x-6 overflow-x-auto pb-2 scrollbar-hide">
             {availableCategories.map(cat => (
@@ -248,7 +312,7 @@ function App() {
         </div>
 
         {/* Empty State */}
-        {products.length === 0 && (
+        {products.length === 0 && !dbError && (
           <div className="text-center py-24 bg-white rounded-xl border border-dashed border-gray-200">
             <div className="mx-auto w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
               <svg className="w-10 h-10 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +321,9 @@ function App() {
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Sua vitrine está vazia</h2>
             <p className="text-gray-500 max-w-sm mx-auto mb-8 text-sm">
-              Comece a adicionar produtos manualmente através da área do gestor para montar sua loja.
+              {isFirebaseConfigured 
+                ? "Adicione produtos na área do gestor para vê-los aqui em tempo real."
+                : "Configure o Firebase para começar a usar o sistema."}
             </p>
             <button
               onClick={handleOpenAdminAttempt}
@@ -445,7 +511,8 @@ function App() {
                     <div className="flex justify-end pt-4 border-t border-gray-100">
                       <button
                         type="submit"
-                        className="inline-flex justify-center py-2.5 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all"
+                        disabled={!isFirebaseConfigured || !!dbError}
+                        className={`inline-flex justify-center py-2.5 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white transition-all ${(!isFirebaseConfigured || !!dbError) ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500'}`}
                       >
                         Adicionar à Loja
                       </button>
@@ -470,7 +537,9 @@ function App() {
                   <div className="bg-white rounded-lg border border-gray-200 max-h-80 overflow-y-auto shadow-sm">
                     <ul className="divide-y divide-gray-100">
                       {products.length === 0 ? (
-                         <li className="px-6 py-8 text-sm text-gray-500 text-center">Nenhum produto cadastrado.</li>
+                         <li className="px-6 py-8 text-sm text-gray-500 text-center">
+                           {dbError ? 'Banco de dados inacessível.' : 'Nenhum produto cadastrado no banco de dados.'}
+                         </li>
                       ) : (
                         products.map((product) => (
                           <li key={product.id} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
@@ -510,7 +579,8 @@ function App() {
                               <button
                                 type="button"
                                 onClick={(e) => handleDeleteProduct(product.id, e)}
-                                className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
+                                disabled={!!dbError}
+                                className={`p-2 rounded-full transition-colors ${dbError ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
                                 title="Remover"
                               >
                                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
