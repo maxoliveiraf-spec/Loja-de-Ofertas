@@ -25,11 +25,33 @@
                 700: '#0369a1',
                 900: '#0c4a6e',
               }
+            },
+            animation: {
+              marquee: 'marquee 25s linear infinite',
+            },
+            keyframes: {
+              marquee: {
+                '0%': { transform: 'translateX(0)' },
+                '100%': { transform: 'translateX(-50%)' },
+              }
             }
           }
         }
       }
     </script>
+    <style>
+      /* Utility for hiding scrollbar but keeping functionality */
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+      .hover\:pause-animation:hover {
+        animation-play-state: paused;
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -45,6 +67,6 @@
 </script>
 </head>
   <body class="bg-gray-50 text-gray-900 font-sans antialiased">
-    <div id="root"></div>\n    <script type="module" src="/index.tsx"></script>
+    <div id="root"></div>
   </body>
 </html>

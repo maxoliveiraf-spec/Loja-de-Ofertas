@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { Product } from '../types';
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
@@ -59,11 +59,41 @@ export const productService = {
     if (!db) throw new Error("Firebase não inicializado corretamente.");
     
     // Adiciona ao Firestore. O ID é gerado automaticamente pelo Firebase.
-    await addDoc(collection(db, "products"), product);
+    await addDoc(collection(db, "products"), {
+        ...product,
+        clicks: 0 // Initialize clicks
+    });
   },
 
   delete: async (id: string) => {
     if (!db) throw new Error("Firebase não inicializado corretamente.");
     await deleteDoc(doc(db, "products", id));
+  }
+};
+
+export const incrementClick = async (productId: string) => {
+  if (!db) return;
+  try {
+    const productRef = doc(db, "products", productId);
+    await updateDoc(productRef, {
+      clicks: increment(1)
+    });
+  } catch (error) {
+    console.error("Error incrementing click:", error);
+  }
+};
+
+export const trackSiteVisit = async () => {
+  if (!db) return;
+  try {
+    await addDoc(collection(db, "site_visits"), {
+      timestamp: Date.now(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      referrer: typeof document !== 'undefined' ? document.referrer : '',
+      date: new Date().toISOString()
+    });
+  } catch (error) {
+    // Silent fail for analytics
+    console.debug("Error tracking visit:", error);
   }
 };

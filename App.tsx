@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
+import { TopProductsCarousel } from './components/TopProductsCarousel';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { MobileInfiniteFeed } from './components/MobileInfiniteFeed'; // Importando o novo componente
 import { Product, ProductStatus } from './types';
-import { productService, isFirebaseConfigured } from './services/database';
+import { productService, isFirebaseConfigured, trackSiteVisit } from './services/database';
 
 // --- CONSTANTS ---
 // Atualizado com o ID fornecido
@@ -16,6 +19,9 @@ function App() {
   const [filterCategory, setFilterCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
+  // New view state for Analytics
+  const [currentView, setCurrentView] = useState<'store' | 'analytics'>('store');
+
   // Login Button Ref
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
@@ -36,6 +42,9 @@ function App() {
 
   // Load products from Firebase (Realtime)
   useEffect(() => {
+    // Rastrear visita ao site
+    trackSiteVisit();
+
     const unsubscribe = productService.subscribe(
       (updatedProducts) => {
         setProducts(updatedProducts);
@@ -279,79 +288,106 @@ function App() {
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Category Filter */}
-        <div className="mb-10 border-b border-gray-200 pb-1">
-          <div className="flex space-x-6 overflow-x-auto pb-2 scrollbar-hide">
-            {availableCategories.map(cat => (
+      {/* Analytics Dashboard View */}
+      {isAdminOpen && currentView === 'analytics' && isAuthorized ? (
+        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-40 bg-gray-50">
+          <button 
+            onClick={() => setCurrentView('store')}
+            className="mb-4 flex items-center text-sm text-gray-600 hover:text-brand-600"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Voltar para Loja
+          </button>
+          <AnalyticsDashboard products={products} />
+        </div>
+      ) : (
+        /* Main Store Content */
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          
+          {/* Top Products Carousel (Only show if we have clicks and products) */}
+          <div className="mb-8">
+            <TopProductsCarousel products={products} />
+          </div>
+
+          {/* Category Filter */}
+          <div className="mb-10 border-b border-gray-200 pb-1">
+            <div className="flex space-x-6 overflow-x-auto pb-2 scrollbar-hide">
+              {availableCategories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(cat)}
+                  className={`text-sm font-medium whitespace-nowrap transition-all duration-200 px-1 pb-3 border-b-2 ${
+                    filterCategory === cat 
+                      ? 'border-brand-600 text-brand-600' 
+                      : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Empty State */}
+          {products.length === 0 && !dbError && (
+            <div className="text-center py-24 bg-white rounded-xl border border-dashed border-gray-200">
+              <div className="mx-auto w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-10 h-10 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Sua vitrine está vazia</h2>
+              <p className="text-gray-500 max-w-sm mx-auto mb-8 text-sm">
+                {isFirebaseConfigured 
+                  ? "Adicione produtos na área do gestor para vê-los aqui em tempo real."
+                  : "Configure o Firebase para começar a usar o sistema."}
+              </p>
               <button
-                key={cat}
-                onClick={() => setFilterCategory(cat)}
-                className={`text-sm font-medium whitespace-nowrap transition-all duration-200 px-1 pb-3 border-b-2 ${
-                  filterCategory === cat 
-                    ? 'border-brand-600 text-brand-600' 
-                    : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
-                }`}
+                onClick={handleOpenAdminAttempt}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-600 hover:bg-brand-700 transition-all"
               >
-                {cat}
+                Adicionar Produto
               </button>
+            </div>
+          )}
+
+          {/* No Search Results State */}
+          {products.length > 0 && filteredProducts.length === 0 && (
+            <div className="text-center py-20">
+              <div className="inline-block p-4 rounded-full bg-gray-100 mb-4">
+                <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">Nenhum produto encontrado</h3>
+              <p className="text-gray-500 mt-1">Tente buscar por outro termo ou categoria.</p>
+              <button 
+                onClick={() => {setSearchQuery(''); setFilterCategory('Todos');}}
+                className="mt-4 text-brand-600 hover:text-brand-800 text-sm font-medium"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
+
+          {/* Desktop Product Grid (Hidden on Mobile) */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
+            {filteredProducts.map(product => (
+              <div key={product.id} className="h-full">
+                <ProductCard product={product} />
+              </div>
             ))}
           </div>
-        </div>
 
-        {/* Empty State */}
-        {products.length === 0 && !dbError && (
-          <div className="text-center py-24 bg-white rounded-xl border border-dashed border-gray-200">
-            <div className="mx-auto w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
-              <svg className="w-10 h-10 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Sua vitrine está vazia</h2>
-            <p className="text-gray-500 max-w-sm mx-auto mb-8 text-sm">
-              {isFirebaseConfigured 
-                ? "Adicione produtos na área do gestor para vê-los aqui em tempo real."
-                : "Configure o Firebase para começar a usar o sistema."}
-            </p>
-            <button
-              onClick={handleOpenAdminAttempt}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-600 hover:bg-brand-700 transition-all"
-            >
-              Adicionar Produto
-            </button>
+          {/* Mobile Infinite Feed (Visible only on Mobile) */}
+          <div className="block sm:hidden">
+            <MobileInfiniteFeed products={filteredProducts} />
           </div>
-        )}
 
-        {/* No Search Results State */}
-        {products.length > 0 && filteredProducts.length === 0 && (
-          <div className="text-center py-20">
-            <div className="inline-block p-4 rounded-full bg-gray-100 mb-4">
-              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900">Nenhum produto encontrado</h3>
-            <p className="text-gray-500 mt-1">Tente buscar por outro termo ou categoria.</p>
-            <button 
-              onClick={() => {setSearchQuery(''); setFilterCategory('Todos');}}
-              className="mt-4 text-brand-600 hover:text-brand-800 text-sm font-medium"
-            >
-              Limpar filtros
-            </button>
-          </div>
-        )}
-
-        {/* Product Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-          {filteredProducts.map(product => (
-            <div key={product.id} className="h-full">
-              <ProductCard product={product} />
-            </div>
-          ))}
-        </div>
-      </main>
+        </main>
+      )}
 
       {/* Admin Modal */}
       {isAdminOpen && (
@@ -374,6 +410,22 @@ function App() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Analytics Button - Only visible if logged in */}
+                  {isAuthorized && (
+                    <button
+                      onClick={() => {
+                        setCurrentView('analytics');
+                        setIsAdminOpen(false); // Close modal to show dashboard in main view
+                      }}
+                      className="p-2 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-full transition-colors mr-1"
+                      title="Ver Estatísticas"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </button>
+                  )}
+                  
                   {isAuthorized && (
                     <button 
                       onClick={handleLogout}

@@ -13,10 +13,17 @@ export interface Product {
   category: string;
   estimatedPrice?: string;
   imageUrl?: string;
-  videoUrl?: string; // New optional field for YouTube video
+  videoUrl?: string;
   imageSearchTerm?: string;
   status: ProductStatus;
   addedAt: number;
+  clicks?: number;
+}
+
+export interface SiteStats {
+  totalVisits: number;
+  productClicks: number;
+  referrers: Record<string, number>;
 }
 
 export interface AppConfig {

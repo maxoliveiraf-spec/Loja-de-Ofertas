@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Product, ProductStatus } from '../types';
+import { incrementClick } from '../services/database';
 
 interface ProductCardProps {
   product: Product;
@@ -11,14 +12,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   // Helper to extract YouTube Embed URL
   const getYouTubeEmbedUrl = (url: string | undefined) => {
     if (!url) return null;
-    // Added support for 'shorts/' and ensuring robust ID extraction
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
     const match = url.match(regExp);
     
-    // Ensure ID is 11 characters long
     if (match && match[2].length === 11) {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      // Using youtube-nocookie and adding origin parameter to fix Error 153
       return `https://www.youtube-nocookie.com/embed/${match[2]}?controls=1&modestbranding=1&rel=0&playsinline=1&origin=${origin}`;
     }
     return null;
@@ -26,14 +24,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const embedUrl = getYouTubeEmbedUrl(product.videoUrl);
 
-  // Generate a placeholder URL if no specific image URL is available.
   const imageUrl = product.imageUrl || 
     (product.imageSearchTerm 
       ? `https://picsum.photos/seed/${product.imageSearchTerm.replace(/\s+/g, '')}/400/400` 
       : `https://picsum.photos/seed/${product.id}/400/400`);
 
   const handleShare = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent any parent click events if applicable
+    e.preventDefault(); 
+    e.stopPropagation();
 
     const shareData = {
       title: product.title,
@@ -41,16 +39,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       url: product.url,
     };
 
-    // Check if Web Share API is supported (Mobile/Modern Browsers)
     if (navigator.share) {
       try {
         await navigator.share(shareData);
       } catch (error) {
-        // User rejected or error occurred
         console.debug('Share cancelled');
       }
     } else {
-      // Fallback to Clipboard
       try {
         const textToCopy = `${shareData.text} ${shareData.url}`;
         await navigator.clipboard.writeText(textToCopy);
@@ -60,6 +55,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         console.error('Failed to copy text');
       }
     }
+  };
+
+  const handleProductClick = () => {
+    // Track click in database
+    incrementClick(product.id);
   };
 
   if (product.status === ProductStatus.PENDING || product.status === ProductStatus.ENRICHING) {
@@ -89,17 +89,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <div className="bg-white group rounded-lg border border-gray-200 overflow-hidden h-full flex flex-col hover:shadow-xl transition-all duration-300 relative">
       
-      {/* Media Container (Video or Image) - Fixed Height h-64 */}
       <div className="relative h-64 bg-white flex items-center justify-center border-b border-gray-50">
-         
-         {/* Category Badge (Only show on image to not block video, or keep top left if acceptable) */}
          <div className="absolute top-3 left-3 z-20 pointer-events-none">
            <span className="inline-block px-2 py-1 text-[10px] font-bold tracking-wider uppercase text-gray-500 bg-gray-100/90 backdrop-blur-sm rounded-sm shadow-sm">
             {product.category}
            </span>
         </div>
 
-        {/* Share Button */}
         <button
           onClick={handleShare}
           className={`absolute top-3 right-3 z-20 p-2 rounded-full shadow-md transition-all duration-200 border border-gray-100 ${
@@ -121,7 +117,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </button>
 
         {embedUrl ? (
-           // Video Embed
            <iframe 
              src={embedUrl} 
              title={product.title}
@@ -131,7 +126,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
              allowFullScreen
            ></iframe>
         ) : (
-           // Standard Image
            <img 
              src={imageUrl} 
              alt={product.title} 
@@ -142,7 +136,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
       
       <div className="p-5 flex-1 flex flex-col">
-        {/* Title */}
         <h3 
           className="text-sm font-medium text-gray-900 mb-2 line-clamp-2 h-10 leading-5 group-hover:text-brand-600 transition-colors"
           title={product.title}
@@ -150,7 +143,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {product.title}
         </h3>
         
-        {/* Price Section */}
         <div className="mb-3">
           {product.estimatedPrice ? (
              <div className="flex items-baseline gap-1">
@@ -162,17 +154,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           )}
         </div>
 
-        {/* Description - smaller text */}
         <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-1 leading-relaxed">
           {product.description}
         </p>
         
-        {/* Call to Action */}
         <div className="mt-auto pt-3 border-t border-gray-50">
           <a 
             href={product.url} 
             target="_blank" 
             rel="noopener noreferrer"
+            onClick={handleProductClick}
             className="w-full flex items-center justify-center px-4 py-2.5 bg-brand-600 text-white text-sm font-bold rounded hover:bg-brand-700 transition-colors duration-200 shadow-sm"
           >
             Ver a Promoção
