@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HelmetProvider } from 'react-helmet-async'; // Import HelmetProvider
+
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { TopProductsCarousel } from './components/TopProductsCarousel';
@@ -243,7 +243,6 @@ function App() {
   ];
 
   return (
-    <HelmetProvider>
       <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
         {/* Componente SEO gerencia as tags <head> */}
         <SEO products={products} />
@@ -682,7 +681,6 @@ function App() {
           </div>
         )}
       </div>
-    </HelmetProvider>
   );
 }
 

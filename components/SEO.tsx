@@ -1,5 +1,4 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Product } from '../types';
 
 interface SEOProps {
@@ -36,8 +35,8 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
   };
 
   return (
-    <Helmet>
-      {/* Basic Meta Tags */}
+    <>
+      {/* Basic Meta Tags - React 19 Native Support */}
       <title>{siteTitle}</title>
       <meta name="description" content={siteDescription} />
       <link rel="canonical" href={siteUrl} />
@@ -60,6 +59,6 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
       <script type="application/ld+json">
         {JSON.stringify(structuredData)}
       </script>
-    </Helmet>
+    </>
   );
 };
