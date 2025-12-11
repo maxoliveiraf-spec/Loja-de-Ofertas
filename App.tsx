@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HelmetProvider } from 'react-helmet-async'; // Import HelmetProvider
+import { HelmetProvider } from '@dr.pogodin/react-helmet'; // Import HelmetProvider
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { TopProductsCarousel } from './components/TopProductsCarousel';
