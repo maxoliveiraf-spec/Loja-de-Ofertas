@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit } from 'firebase/firestore';
-import { Product } from '../types';
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc } from 'firebase/firestore';
+import { Product, ProductStatus } from '../types';
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
 const firebaseConfig = {
@@ -37,10 +37,24 @@ export const productService = {
       const q = query(collection(db, "products"), orderBy("addedAt", "desc"));
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const products = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Product[];
+        const products = snapshot.docs.map(doc => {
+          const data = doc.data();
+          // Explicit mapping to ensure clean JSON object and avoid circular refs from Firestore internals
+          return {
+            id: doc.id,
+            url: data.url || '',
+            title: data.title || '',
+            description: data.description || '',
+            category: data.category || 'Outros',
+            estimatedPrice: data.estimatedPrice || '',
+            imageUrl: data.imageUrl || '',
+            videoUrl: data.videoUrl || '',
+            imageSearchTerm: data.imageSearchTerm || '',
+            status: data.status || ProductStatus.READY,
+            addedAt: data.addedAt || Date.now(),
+            clicks: data.clicks || 0
+          } as Product;
+        });
         onUpdate(products);
       }, (error) => {
         console.error("Erro ao buscar produtos do Firestore:", error);
@@ -83,6 +97,8 @@ export const incrementClick = async (productId: string) => {
   }
 };
 
+// --- ANALYTICS & NOTIFICATIONS ---
+
 export const trackSiteVisit = async () => {
   if (!db) return;
   try {
@@ -107,6 +123,41 @@ export const getSiteStats = async () => {
     return snapshot.size;
   } catch (error) {
     console.error("Erro ao buscar estatísticas:", error);
+    return 0;
+  }
+};
+
+// Increment global notification counter
+export const trackNotificationSent = async () => {
+  if (!db) return;
+  try {
+    const statsRef = doc(db, "stats", "global");
+    // Ensure document exists
+    try {
+       await updateDoc(statsRef, {
+         notificationsSent: increment(1)
+       });
+    } catch (e) {
+       // Create if doesn't exist
+       await setDoc(statsRef, { notificationsSent: 1 }, { merge: true });
+    }
+  } catch (error) {
+    console.debug("Error tracking notification:", error);
+  }
+};
+
+// Get global notification count
+export const getNotificationStats = async () => {
+  if (!db) return 0;
+  try {
+    const statsRef = doc(db, "stats", "global");
+    const docSnap = await getDoc(statsRef);
+    if (docSnap.exists()) {
+      return docSnap.data().notificationsSent || 0;
+    }
+    return 0;
+  } catch (error) {
+    console.error("Error fetching notification stats:", error);
     return 0;
   }
 };

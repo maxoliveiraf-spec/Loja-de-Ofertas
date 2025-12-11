@@ -1,5 +1,5 @@
 import React from 'react';
-import { Helmet } from '@dr.pogodin/react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { Product } from '../types';
 
 interface SEOProps {
@@ -23,7 +23,7 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
         "@type": "Product",
         "name": product.title,
         "description": product.description,
-        "image": product.imageUrl,
+        "image": product.imageUrl || "",
         "offers": {
           "@type": "Offer",
           "priceCurrency": "BRL",
@@ -34,6 +34,15 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
       }
     }))
   };
+
+  let jsonLdString = '';
+  try {
+    jsonLdString = JSON.stringify(structuredData);
+  } catch (e) {
+    console.warn("Error generating JSON-LD structured data:", e);
+    // Fallback to empty object or ignore
+    jsonLdString = '{}';
+  }
 
   return (
     <Helmet>
@@ -58,7 +67,7 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
       
       {/* Structured Data (JSON-LD) */}
       <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
+        {jsonLdString}
       </script>
     </Helmet>
   );

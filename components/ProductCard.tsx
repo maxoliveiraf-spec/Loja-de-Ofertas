@@ -60,6 +60,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleProductClick = () => {
     // Track click in database
     incrementClick(product.id);
+    
+    // Save to local storage for "Personalized Notification" re-engagement
+    try {
+      const historyItem = {
+        id: product.id,
+        title: product.title,
+        url: product.url,
+        imageUrl: imageUrl,
+        timestamp: Date.now()
+      };
+      
+      const historyStr = localStorage.getItem('productHistory');
+      let history = historyStr ? JSON.parse(historyStr) : [];
+      
+      // Remove duplicates (keep latest) and limit size
+      history = history.filter((h: any) => h.id !== product.id);
+      history.unshift(historyItem); // Add to front
+      if (history.length > 10) history.pop();
+      
+      localStorage.setItem('productHistory', JSON.stringify(history));
+    } catch (e) {
+      console.error("Local storage error", e);
+    }
   };
 
   if (product.status === ProductStatus.PENDING || product.status === ProductStatus.ENRICHING) {

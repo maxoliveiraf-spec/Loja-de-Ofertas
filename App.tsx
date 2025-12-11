@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HelmetProvider } from '@dr.pogodin/react-helmet'; // Import HelmetProvider
+import { HelmetProvider } from 'react-helmet-async'; // Import HelmetProvider
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { TopProductsCarousel } from './components/TopProductsCarousel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { MobileInfiniteFeed } from './components/MobileInfiniteFeed';
 import { SEO } from './components/SEO'; // Import SEO component
+import { NotificationBell, NotificationItem } from './components/NotificationBell'; // Import Bell
 import { Product, ProductStatus } from './types';
-import { productService, isFirebaseConfigured, trackSiteVisit } from './services/database';
+import { productService, isFirebaseConfigured, trackSiteVisit, trackNotificationSent } from './services/database';
 
 // --- CONSTANTS ---
 // Atualizado com o ID fornecido
@@ -24,6 +25,9 @@ function App() {
   const [isAuthorized, setIsAuthorized] = useState(false); // Controls auth state
   const [filterCategory, setFilterCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // Notification State
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   
   // Login Button Ref
   const googleButtonRef = useRef<HTMLDivElement>(null);
@@ -48,10 +52,24 @@ function App() {
     // Rastrear visita ao site
     trackSiteVisit();
 
+    let isInitialLoad = true;
+
     const unsubscribe = productService.subscribe(
       (updatedProducts) => {
+        // NOTIFICATION LOGIC: Check for new products
+        if (!isInitialLoad && updatedProducts.length > products.length) {
+          const newProduct = updatedProducts[0]; // Assuming desc sort order
+          triggerNotification({
+             title: 'Nova Oferta Disponível! 🎉',
+             message: `Acabou de chegar: ${newProduct.title}`,
+             url: newProduct.url,
+             imageUrl: newProduct.imageUrl
+          });
+        }
+
         setProducts(updatedProducts);
         setDbError(null); // Clear error on success
+        isInitialLoad = false;
       },
       (error) => {
         // Check for common permission error
@@ -65,7 +83,68 @@ function App() {
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
+  }, [products.length]); // Dep dependency needed for comparison logic
+
+  // AUTOMATIC RE-ENGAGEMENT NOTIFICATION LOGIC
+  useEffect(() => {
+    // Note: We removed the automatic requestPermission here. 
+    // It is now handled in NotificationBell.tsx on user click.
+
+    // Set up interval to check for "Personalized" opportunities (every 2 minutes)
+    const interval = setInterval(() => {
+      const historyStr = localStorage.getItem('productHistory');
+      if (historyStr) {
+        const history = JSON.parse(historyStr);
+        if (history.length > 0) {
+           // Pick a random product from history
+           const randomProduct = history[Math.floor(Math.random() * history.length)];
+           
+           // Only show if we haven't bugged them recently (simple random check for demo)
+           if (Math.random() > 0.7) { 
+             triggerNotification({
+               title: 'Ainda interessado? 👀',
+               message: `Você viu "${randomProduct.title}". As unidades podem acabar!`,
+               url: randomProduct.url,
+               imageUrl: randomProduct.imageUrl
+             });
+           }
+        }
+      }
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(interval);
   }, []);
+
+  const triggerNotification = (data: {title: string, message: string, url?: string, imageUrl?: string}) => {
+     const newNotif: NotificationItem = {
+       id: Date.now().toString(),
+       title: data.title,
+       message: data.message,
+       url: data.url,
+       imageUrl: data.imageUrl,
+       timestamp: Date.now(),
+       read: false
+     };
+
+     // 1. Add to In-App Bell
+     setNotifications(prev => [newNotif, ...prev]);
+
+     // 2. Browser Push Notification
+     if ('Notification' in window && Notification.permission === 'granted') {
+       try {
+         new Notification(data.title, {
+           body: data.message,
+           icon: '/favicon.ico', // Fallback
+           image: data.imageUrl, // Some browsers support this
+         } as any);
+       } catch (e) {
+         console.debug("Browser notification failed", e);
+       }
+     }
+
+     // 3. Track for Analytics
+     trackNotificationSent();
+  };
 
   // Check previous session auth
   useEffect(() => {
@@ -405,6 +484,19 @@ function App() {
 
         </main>
 
+        {/* Notification Bell (Footer) */}
+        <NotificationBell 
+           notifications={notifications} 
+           onClear={() => setNotifications([])}
+           onMarkRead={() => setNotifications(prev => prev.map(n => ({...n, read: true})))}
+           onPermissionGranted={() => {
+             triggerNotification({
+               title: "Notificações Ativadas! 🔔",
+               message: "Você receberá alertas sobre as melhores ofertas em tempo real.",
+             });
+           }}
+        />
+
         {/* -------------------- ADMIN MODAL -------------------- */}
         {isAdminOpen && (
           <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
@@ -649,66 +741,6 @@ function App() {
                   )}
 
                 </div>
-                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
-                  <button
-                    type="button"
-                    className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
-                    onClick={() => setIsAdminOpen(false)}
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* -------------------- ANALYTICS MODAL (INDEPENDENT) -------------------- */}
-        {isAnalyticsOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-              <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" aria-hidden="true" onClick={() => setIsAnalyticsOpen(false)}></div>
-              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-              
-              <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
-                {/* Analytics Header */}
-                <div className="bg-white px-4 py-4 sm:px-6 border-b border-gray-100 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg leading-6 font-bold text-gray-900 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                      Painel de Análise
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                     {isAuthorized && (
-                      <button 
-                        onClick={handleLogout}
-                        className="text-xs font-medium text-red-600 hover:text-red-800 px-3 py-1 rounded hover:bg-red-50 transition-colors"
-                      >
-                        Sair
-                      </button>
-                    )}
-                    <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 hover:text-gray-500 bg-gray-50 p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Analytics Body */}
-                <div className="px-4 py-5 sm:p-6 bg-gray-50 min-h-[400px]">
-                  {!isAuthorized ? (
-                    // REUSE LOGIN SCREEN FOR ANALYTICS ACCESS
-                    renderLoginScreen("Acesso Restrito às Estatísticas", "Para ver os dados de tráfego, faça login:")
-                  ) : (
-                    // SHOW DASHBOARD
-                    <AnalyticsDashboard products={products} />
-                  )}
-                </div>
-
                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
                   <button
                     type="button"

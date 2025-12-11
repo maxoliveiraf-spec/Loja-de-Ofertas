@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Product } from '../types';
-import { getSiteStats } from '../services/database';
+import { getSiteStats, getNotificationStats } from '../services/database';
 
 interface AnalyticsDashboardProps {
   products: Product[];
@@ -9,6 +9,7 @@ interface AnalyticsDashboardProps {
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ products }) => {
   const [totalVisits, setTotalVisits] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
+  const [totalNotifications, setTotalNotifications] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,7 +20,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ products
     // Fetch visits from Firestore using the centralized service
     const fetchStats = async () => {
       const visits = await getSiteStats();
+      const notifs = await getNotificationStats();
+      
       setTotalVisits(visits);
+      setTotalNotifications(notifs);
       setLoading(false);
     };
 
@@ -35,14 +39,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ products
       <h2 className="text-2xl font-bold text-gray-900">Estatísticas da Loja</h2>
       
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
            <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">Visitas Totais</div>
            <div className="mt-2 flex items-baseline gap-2">
              <span className="text-3xl font-extrabold text-gray-900">
                {loading ? '...' : totalVisits}
              </span>
-             {/* <span className="text-xs text-green-600 font-bold">↑ 12%</span> */}
            </div>
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
@@ -54,12 +57,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ products
            </div>
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+           <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">Notificações Enviadas</div>
+           <div className="mt-2 flex items-baseline gap-2">
+             <span className="text-3xl font-extrabold text-purple-600">
+               {totalNotifications}
+             </span>
+             <span className="text-xs text-gray-400">Push/Alertas</span>
+           </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
            <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">Taxa de Interesse</div>
            <div className="mt-2 flex items-baseline gap-2">
              <span className="text-3xl font-extrabold text-gray-900">
                {totalVisits > 0 ? ((totalClicks / totalVisits) * 100).toFixed(1) : 0}%
              </span>
-             <span className="text-xs text-gray-400">Cliques/Visita</span>
            </div>
         </div>
       </div>
