@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Product } from '../types';
-import { getFirestore, collection, getDocs, query, where, limit, orderBy } from 'firebase/firestore';
+import { getSiteStats } from '../services/database';
 
 interface AnalyticsDashboardProps {
   products: Product[];
@@ -16,20 +16,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ products
     const clicks = products.reduce((sum, p) => sum + (p.clicks || 0), 0);
     setTotalClicks(clicks);
 
-    // Fetch visits from Firestore
+    // Fetch visits from Firestore using the centralized service
     const fetchStats = async () => {
-      try {
-        const db = getFirestore();
-        // This is a simplified count. In a real app with millions of records, use aggregation queries.
-        // For this scale, counting recent documents is okay.
-        const q = query(collection(db, "site_visits"), limit(1000)); 
-        const snapshot = await getDocs(q);
-        setTotalVisits(snapshot.size); // Basic count of docs in sample
-      } catch (e) {
-        console.error("Error fetching analytics", e);
-      } finally {
-        setLoading(false);
-      }
+      const visits = await getSiteStats();
+      setTotalVisits(visits);
+      setLoading(false);
     };
 
     fetchStats();

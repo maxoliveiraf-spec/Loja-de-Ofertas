@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit } from 'firebase/firestore';
 import { Product } from '../types';
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
@@ -95,5 +95,18 @@ export const trackSiteVisit = async () => {
   } catch (error) {
     // Silent fail for analytics
     console.debug("Error tracking visit:", error);
+  }
+};
+
+export const getSiteStats = async () => {
+  if (!db) return 0;
+  try {
+    // Limit to 1000 to save reads and bandwidth while giving a good estimate
+    const q = query(collection(db, "site_visits"), limit(1000));
+    const snapshot = await getDocs(q);
+    return snapshot.size;
+  } catch (error) {
+    console.error("Erro ao buscar estatísticas:", error);
+    return 0;
   }
 };
