@@ -2,12 +2,13 @@ import React from 'react';
 
 interface HeaderProps {
   onOpenAdmin: () => void;
+  onOpenAnalytics: () => void;
   totalProducts: number;
   searchQuery: string;
   onSearchChange: (query: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, totalProducts, searchQuery, onSearchChange }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, onOpenAnalytics, totalProducts, searchQuery, onSearchChange }) => {
   return (
     <header className="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,6 +58,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, totalProducts, sear
               {totalProducts} ofertas
             </span>
             
+            <button
+              onClick={onOpenAnalytics}
+              className="inline-flex items-center justify-center p-2 sm:px-3 sm:py-2 border border-transparent sm:border-gray-200 text-sm font-medium rounded-full sm:rounded-lg shadow-sm text-gray-500 bg-white hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all duration-200"
+              title="Estatísticas do Site"
+            >
+               <svg className="h-5 w-5 sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+               </svg>
+               <span className="hidden sm:inline">Análise</span>
+            </button>
+
             <button
               onClick={onOpenAdmin}
               className="inline-flex items-center justify-center p-2 sm:px-4 sm:py-2 border border-gray-200 text-sm font-medium rounded-full sm:rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 hover:text-brand-600 hover:border-brand-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all duration-200 group"

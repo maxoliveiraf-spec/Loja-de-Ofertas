@@ -16,14 +16,15 @@ const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
+  
+  // Independent Modal States
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+  
   const [isAuthorized, setIsAuthorized] = useState(false); // Controls auth state
   const [filterCategory, setFilterCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
-  // New view state for Analytics
-  const [currentView, setCurrentView] = useState<'store' | 'analytics'>('store');
-
   // Login Button Ref
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
@@ -74,16 +75,19 @@ function App() {
     }
   }, []);
 
-  // Effect to render Google Button when modal opens and not authorized
+  // Effect to render Google Button when EITHER modal opens and not authorized
   useEffect(() => {
-    if (isAdminOpen && !isAuthorized && window.google) {
+    if ((isAdminOpen || isAnalyticsOpen) && !isAuthorized && window.google) {
       try {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCallback
         });
         
-        // Render the button inside the modal div
+        // Render the button inside the modal div (reused ref)
+        // Note: The Ref must be currently rendered in the DOM for this to work.
+        // React renders the modal content based on the flags before this effect runs fully, 
+        // but we need to ensure the element exists.
         if (googleButtonRef.current) {
           window.google.accounts.id.renderButton(
             googleButtonRef.current,
@@ -94,7 +98,7 @@ function App() {
         console.error("Erro ao renderizar botão do Google", e);
       }
     }
-  }, [isAdminOpen, isAuthorized]);
+  }, [isAdminOpen, isAnalyticsOpen, isAuthorized]);
 
   const handleGoogleCallback = (response: any) => {
     try {
@@ -109,7 +113,6 @@ function App() {
       
       if (payload.email === ADMIN_EMAIL) {
         setIsAuthorized(true);
-        // setIsAdminOpen(true); // Already open
         sessionStorage.setItem('isAuthorized', 'true');
       } else {
         alert(`Acesso negado. O email ${payload.email} não tem permissão de gestor.`);
@@ -123,13 +126,17 @@ function App() {
   };
 
   const handleOpenAdminAttempt = () => {
-    // Simply open the modal. The content inside will decide whether to show login or admin panel.
+    setIsAnalyticsOpen(false); // Ensure other modal is closed
     setIsAdminOpen(true);
+  };
+
+  const handleOpenAnalytics = () => {
+    setIsAdminOpen(false); // Ensure other modal is closed
+    setIsAnalyticsOpen(true);
   };
 
   const handleLogout = () => {
     setIsAuthorized(false);
-    // Don't close modal immediately, let them see the login screen again or close manually
     sessionStorage.removeItem('isAuthorized');
     if (window.google) {
       window.google.accounts.id.disableAutoSelect();
@@ -242,6 +249,24 @@ function App() {
     'Eletrônicos', 'Casa e Cozinha', 'Moda', 'Beleza', 'Esportes', 'Brinquedos', 'Livros', 'Outros'
   ];
 
+  // Helper render for Login Screen (used in both modals)
+  const renderLoginScreen = (title: string, message: string) => (
+    <div className="flex flex-col items-center justify-center py-10">
+      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center max-w-sm w-full">
+         <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+         </div>
+         <h4 className="text-lg font-bold text-gray-900 mb-2">{title}</h4>
+         <p className="text-sm text-gray-500 mb-6 text-center">
+           {message} <br/><strong>{ADMIN_EMAIL}</strong>
+         </p>
+         <div ref={googleButtonRef} className="flex justify-center"></div>
+      </div>
+    </div>
+  );
+
   return (
     <HelmetProvider>
       <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -250,6 +275,7 @@ function App() {
 
         <Header 
           onOpenAdmin={handleOpenAdminAttempt}
+          onOpenAnalytics={handleOpenAnalytics}
           totalProducts={products.length}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -294,108 +320,92 @@ function App() {
           </div>
         )}
 
-        {/* Analytics Dashboard View */}
-        {isAdminOpen && currentView === 'analytics' && isAuthorized ? (
-          <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-40 bg-gray-50">
-            <button 
-              onClick={() => setCurrentView('store')}
-              className="mb-4 flex items-center text-sm text-gray-600 hover:text-brand-600"
-            >
-              <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Voltar para Loja
-            </button>
-            <AnalyticsDashboard products={products} />
+        {/* Main Store Content */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          
+          {/* Top Products Carousel (Only show if we have clicks and products) */}
+          <div className="mb-8">
+            <TopProductsCarousel products={products} />
           </div>
-        ) : (
-          /* Main Store Content */
-          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            
-            {/* Top Products Carousel (Only show if we have clicks and products) */}
-            <div className="mb-8">
-              <TopProductsCarousel products={products} />
-            </div>
 
-            {/* Category Filter */}
-            <div className="mb-10 border-b border-gray-200 pb-1">
-              <div className="flex space-x-6 overflow-x-auto pb-2 scrollbar-hide">
-                {availableCategories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setFilterCategory(cat)}
-                    className={`text-sm font-medium whitespace-nowrap transition-all duration-200 px-1 pb-3 border-b-2 ${
-                      filterCategory === cat 
-                        ? 'border-brand-600 text-brand-600' 
-                        : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Empty State */}
-            {products.length === 0 && !dbError && (
-              <div className="text-center py-24 bg-white rounded-xl border border-dashed border-gray-200">
-                <div className="mx-auto w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
-                  <svg className="w-10 h-10 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Sua vitrine está vazia</h2>
-                <p className="text-gray-500 max-w-sm mx-auto mb-8 text-sm">
-                  {isFirebaseConfigured 
-                    ? "Adicione produtos na área do gestor para vê-los aqui em tempo real."
-                    : "Configure o Firebase para começar a usar o sistema."}
-                </p>
+          {/* Category Filter */}
+          <div className="mb-10 border-b border-gray-200 pb-1">
+            <div className="flex space-x-6 overflow-x-auto pb-2 scrollbar-hide">
+              {availableCategories.map(cat => (
                 <button
-                  onClick={handleOpenAdminAttempt}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-600 hover:bg-brand-700 transition-all"
+                  key={cat}
+                  onClick={() => setFilterCategory(cat)}
+                  className={`text-sm font-medium whitespace-nowrap transition-all duration-200 px-1 pb-3 border-b-2 ${
+                    filterCategory === cat 
+                      ? 'border-brand-600 text-brand-600' 
+                      : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
+                  }`}
                 >
-                  Adicionar Produto
+                  {cat}
                 </button>
-              </div>
-            )}
-
-            {/* No Search Results State */}
-            {products.length > 0 && filteredProducts.length === 0 && (
-              <div className="text-center py-20">
-                <div className="inline-block p-4 rounded-full bg-gray-100 mb-4">
-                  <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">Nenhum produto encontrado</h3>
-                <p className="text-gray-500 mt-1">Tente buscar por outro termo ou categoria.</p>
-                <button 
-                  onClick={() => {setSearchQuery(''); setFilterCategory('Todos');}}
-                  className="mt-4 text-brand-600 hover:text-brand-800 text-sm font-medium"
-                >
-                  Limpar filtros
-                </button>
-              </div>
-            )}
-
-            {/* Desktop Product Grid (Hidden on Mobile) */}
-            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-              {filteredProducts.map(product => (
-                <div key={product.id} className="h-full">
-                  <ProductCard product={product} />
-                </div>
               ))}
             </div>
+          </div>
 
-            {/* Mobile Infinite Feed (Visible only on Mobile) */}
-            <div className="block sm:hidden">
-              <MobileInfiniteFeed products={filteredProducts} />
+          {/* Empty State */}
+          {products.length === 0 && !dbError && (
+            <div className="text-center py-24 bg-white rounded-xl border border-dashed border-gray-200">
+              <div className="mx-auto w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-10 h-10 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Sua vitrine está vazia</h2>
+              <p className="text-gray-500 max-w-sm mx-auto mb-8 text-sm">
+                {isFirebaseConfigured 
+                  ? "Adicione produtos na área do gestor para vê-los aqui em tempo real."
+                  : "Configure o Firebase para começar a usar o sistema."}
+              </p>
+              <button
+                onClick={handleOpenAdminAttempt}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-600 hover:bg-brand-700 transition-all"
+              >
+                Adicionar Produto
+              </button>
             </div>
+          )}
 
-          </main>
-        )}
+          {/* No Search Results State */}
+          {products.length > 0 && filteredProducts.length === 0 && (
+            <div className="text-center py-20">
+              <div className="inline-block p-4 rounded-full bg-gray-100 mb-4">
+                <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">Nenhum produto encontrado</h3>
+              <p className="text-gray-500 mt-1">Tente buscar por outro termo ou categoria.</p>
+              <button 
+                onClick={() => {setSearchQuery(''); setFilterCategory('Todos');}}
+                className="mt-4 text-brand-600 hover:text-brand-800 text-sm font-medium"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
 
-        {/* Admin Modal */}
+          {/* Desktop Product Grid (Hidden on Mobile) */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
+            {filteredProducts.map(product => (
+              <div key={product.id} className="h-full">
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile Infinite Feed (Visible only on Mobile) */}
+          <div className="block sm:hidden">
+            <MobileInfiniteFeed products={filteredProducts} />
+          </div>
+
+        </main>
+
+        {/* -------------------- ADMIN MODAL -------------------- */}
         {isAdminOpen && (
           <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -416,28 +426,12 @@ function App() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Analytics Button - Only visible if logged in */}
-                    {isAuthorized && (
-                      <button
-                        onClick={() => {
-                          setCurrentView('analytics');
-                          setIsAdminOpen(false); // Close modal to show dashboard in main view
-                        }}
-                        className="p-2 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-full transition-colors mr-1"
-                        title="Ver Estatísticas"
-                      >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      </button>
-                    )}
-                    
                     {isAuthorized && (
                       <button 
                         onClick={handleLogout}
                         className="text-xs font-medium text-red-600 hover:text-red-800 px-3 py-1 rounded hover:bg-red-50 transition-colors"
                       >
-                        Sair da Conta
+                        Sair
                       </button>
                     )}
                     <button onClick={() => setIsAdminOpen(false)} className="text-gray-400 hover:text-gray-500 bg-gray-50 p-2 rounded-full hover:bg-gray-100 transition-colors">
@@ -453,20 +447,7 @@ function App() {
                   
                   {!isAuthorized ? (
                     // LOGIN SCREEN
-                    <div className="flex flex-col items-center justify-center py-10">
-                      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center max-w-sm w-full">
-                         <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                         </div>
-                         <h4 className="text-lg font-bold text-gray-900 mb-2">Acesso Restrito</h4>
-                         <p className="text-sm text-gray-500 mb-6 text-center">
-                           Para gerenciar produtos, faça login com: <br/><strong>{ADMIN_EMAIL}</strong>
-                         </p>
-                         <div ref={googleButtonRef} className="flex justify-center"></div>
-                      </div>
-                    </div>
+                    renderLoginScreen("Acesso ao Gestor", "Para gerenciar produtos, faça login com:")
                   ) : (
                     // ADMIN CONTENT (Add Product + List)
                     <>
@@ -673,6 +654,66 @@ function App() {
                     type="button"
                     className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
                     onClick={() => setIsAdminOpen(false)}
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* -------------------- ANALYTICS MODAL (INDEPENDENT) -------------------- */}
+        {isAnalyticsOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" aria-hidden="true" onClick={() => setIsAnalyticsOpen(false)}></div>
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+              
+              <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
+                {/* Analytics Header */}
+                <div className="bg-white px-4 py-4 sm:px-6 border-b border-gray-100 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg leading-6 font-bold text-gray-900 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      Painel de Análise
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     {isAuthorized && (
+                      <button 
+                        onClick={handleLogout}
+                        className="text-xs font-medium text-red-600 hover:text-red-800 px-3 py-1 rounded hover:bg-red-50 transition-colors"
+                      >
+                        Sair
+                      </button>
+                    )}
+                    <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 hover:text-gray-500 bg-gray-50 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Analytics Body */}
+                <div className="px-4 py-5 sm:p-6 bg-gray-50 min-h-[400px]">
+                  {!isAuthorized ? (
+                    // REUSE LOGIN SCREEN FOR ANALYTICS ACCESS
+                    renderLoginScreen("Acesso Restrito às Estatísticas", "Para ver os dados de tráfego, faça login:")
+                  ) : (
+                    // SHOW DASHBOARD
+                    <AnalyticsDashboard products={products} />
+                  )}
+                </div>
+
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
+                    onClick={() => setIsAnalyticsOpen(false)}
                   >
                     Fechar
                   </button>
