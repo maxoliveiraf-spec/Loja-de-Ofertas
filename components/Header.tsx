@@ -53,12 +53,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, onOpenAnalytics, to
           </div>
           
           {/* Actions Section */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 relative z-10">
             <span className="text-xs text-gray-500 font-medium hidden lg:block bg-gray-100 px-3 py-1 rounded-full whitespace-nowrap">
               {totalProducts} ofertas
             </span>
             
             <button
+              type="button"
               onClick={onOpenAnalytics}
               className="inline-flex items-center justify-center p-2 sm:px-3 sm:py-2 border border-transparent sm:border-gray-200 text-sm font-medium rounded-full sm:rounded-lg shadow-sm text-gray-500 bg-white hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all duration-200"
               title="Estatísticas do Site"
@@ -70,6 +71,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, onOpenAnalytics, to
             </button>
 
             <button
+              type="button"
               onClick={onOpenAdmin}
               className="inline-flex items-center justify-center p-2 sm:px-4 sm:py-2 border border-gray-200 text-sm font-medium rounded-full sm:rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 hover:text-brand-600 hover:border-brand-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all duration-200 group"
               aria-label="Gestor"
