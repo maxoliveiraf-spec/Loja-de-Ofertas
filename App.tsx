@@ -193,7 +193,7 @@ function App() {
     }
   };
 
-  const openEdit = (product: Product) => {
+  const openEdit = useCallback((product: Product) => {
     setEditingProduct(product);
     setFormData({
       url: product.url,
@@ -204,7 +204,28 @@ function App() {
       description: product.description || ''
     });
     setIsPostModalOpen(true);
-  };
+  }, []);
+
+  // Handlers otimizados com useCallback para evitar re-renders
+  const handleCategoryChange = useCallback((cat: string) => {
+    setFilterCategory(cat);
+    setVisibleCount(INITIAL_ITEMS);
+  }, []);
+
+  const handleOpenAdmin = useCallback(() => {
+    setEditingProduct(null);
+    setFormData({url:'',title:'',estimatedPrice:'',category:'Eletrônicos',imageUrl:'',description:''});
+    user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true);
+  }, [user]);
+
+  const handleOpenAnalytics = useCallback(() => {
+    isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito apenas ao gestor do site.");
+  }, [isUserAdmin]);
+
+  const handleSearchChange = useCallback((q: string) => {
+    setSearchQuery(q);
+    setVisibleCount(INITIAL_ITEMS);
+  }, []);
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = filterCategory === 'Todos' || p.category === filterCategory;
@@ -221,11 +242,11 @@ function App() {
         <SEO products={products} />
 
         <Header 
-          onOpenAdmin={() => { setEditingProduct(null); setFormData({url:'',title:'',estimatedPrice:'',category:'Eletrônicos',imageUrl:'',description:''}); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }}
-          onOpenAnalytics={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito apenas ao gestor do site.")}
+          onOpenAdmin={handleOpenAdmin}
+          onOpenAnalytics={handleOpenAnalytics}
           totalProducts={products.length}
           searchQuery={searchQuery}
-          onSearchChange={(q) => { setSearchQuery(q); setVisibleCount(INITIAL_ITEMS); }}
+          onSearchChange={handleSearchChange}
         />
 
         <main className="flex-1 w-full max-w-7xl mx-auto py-0 sm:py-8 sm:px-4">
@@ -233,20 +254,21 @@ function App() {
               <TopProductsCarousel products={products} />
             </div>
 
-            {/* Categorias Mobile */}
-            <div className="sm:hidden flex overflow-x-auto gap-4 p-4 scrollbar-hide border-b border-gray-100 bg-white sticky top-16 z-30">
+            {/* Categorias Mobile - Botões otimizados para toque */}
+            <div className="sm:hidden flex overflow-x-auto gap-3 p-4 scrollbar-hide smooth-scroll border-b border-gray-100 bg-white sticky top-16 z-30">
                {['Todos', 'Eletrônicos', 'Moda', 'Casa', 'Beleza'].map(cat => (
                  <button 
+                  type="button"
                   key={cat} 
-                  onClick={() => { setFilterCategory(cat); setVisibleCount(INITIAL_ITEMS); }}
-                  className={`flex-shrink-0 flex flex-col items-center gap-2 active:scale-90 transition-transform duration-75 p-1 rounded-xl`}
+                  onClick={() => handleCategoryChange(cat)}
+                  className="btn-instant flex-shrink-0 flex flex-col items-center gap-2 p-2 rounded-xl min-w-[64px]"
                  >
-                   <div className={`w-14 h-14 rounded-full p-0.5 ${filterCategory === cat ? 'bg-gradient-to-tr from-yellow-400 to-fuchsia-600' : 'bg-gray-200'}`}>
+                   <div className={`w-14 h-14 rounded-full p-0.5 pointer-events-none ${filterCategory === cat ? 'bg-gradient-to-tr from-yellow-400 to-fuchsia-600' : 'bg-gray-200'}`}>
                       <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-gray-500 overflow-hidden text-center p-1">
                         {cat}
                       </div>
                    </div>
-                   <span className={`text-[11px] ${filterCategory === cat ? 'font-black text-gray-900' : 'font-medium text-gray-400'}`}>{cat}</span>
+                   <span className={`text-[11px] pointer-events-none ${filterCategory === cat ? 'font-black text-gray-900' : 'font-medium text-gray-400'}`}>{cat}</span>
                  </button>
                ))}
             </div>
@@ -255,7 +277,13 @@ function App() {
               <div className="mb-12 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
                 <div className="flex justify-between items-center mb-6">
                    <h2 className="text-xl font-bold text-gray-900">Estatísticas do Gestor</h2>
-                   <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors p-2 active:scale-90">Fechar Painel</button>
+                   <button 
+                     type="button"
+                     onClick={() => setIsAnalyticsOpen(false)} 
+                     className="btn-instant text-gray-400 hover:text-red-500 px-4 py-3 rounded-lg min-h-[44px]"
+                   >
+                     <span className="pointer-events-none">Fechar Painel</span>
+                   </button>
                 </div>
                 <AnalyticsDashboard products={products} />
               </div>
@@ -300,13 +328,19 @@ function App() {
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slideUp my-auto">
                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                  <div className="flex items-center gap-2">
-                   <svg className="w-5 h-5 text-brand-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+                   <svg className="w-5 h-5 text-brand-600 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
                    <h2 className="font-bold text-gray-900">{editingProduct ? 'Editar Oferta' : 'Enviar Nova Oferta ML'}</h2>
                  </div>
-                 <button onClick={() => setIsPostModalOpen(false)} className="p-3 text-gray-400 hover:text-gray-600 active:scale-90 transition-transform">✕</button>
+                 <button 
+                   type="button"
+                   onClick={() => setIsPostModalOpen(false)} 
+                   className="btn-instant p-3 text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full"
+                 >
+                   <span className="pointer-events-none text-xl">✕</span>
+                 </button>
                </div>
                
-               <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide">
+               <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide smooth-scroll">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Link do Mercado Livre</label>
                     <input 
@@ -358,12 +392,12 @@ function App() {
                   </div>
 
                   <button 
+                    type="submit"
                     disabled={!isValidMercadoLivreUrl(formData.url) || isEnriching}
-                    type="submit" 
-                    className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold py-4 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                    className="btn-instant w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 min-h-[52px]"
                   >
-                    {editingProduct ? 'Salvar Alterações' : 'Publicar Oferta Agora'}
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                    <span className="pointer-events-none">{editingProduct ? 'Salvar Alterações' : 'Publicar Oferta Agora'}</span>
+                    <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
                   </button>
                </form>
             </div>
@@ -380,7 +414,13 @@ function App() {
               <h3 className="text-xl font-extrabold mb-2 text-gray-900">Entre para continuar</h3>
               <p className="text-xs text-gray-500 mb-8 leading-relaxed">Você precisa estar logado para postar ofertas e interagir com a comunidade!</p>
               <div ref={authModalGoogleRef} className="flex justify-center mb-6"></div>
-              <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-bold uppercase tracking-widest active:scale-90 p-2">Fechar</button>
+              <button 
+                type="button"
+                onClick={() => setIsAuthModalOpen(false)} 
+                className="btn-instant text-[11px] text-gray-400 font-bold uppercase tracking-widest px-4 py-3 min-h-[44px] rounded-lg"
+              >
+                <span className="pointer-events-none">Fechar</span>
+              </button>
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface NotificationItem {
   id: string;
@@ -22,18 +22,24 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ notification
   const unreadCount = notifications.filter(n => !n.read).length;
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close panel when clicking outside
+  // Close panel when clicking/touching outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
 
-  const handleToggle = async () => {
+  const handleToggle = useCallback(async () => {
     if (!isOpen) {
       // UX Improvement: Request permission specifically when user interacts with the bell
       if ('Notification' in window && Notification.permission === 'default') {
@@ -48,8 +54,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ notification
       }
       onMarkRead();
     }
-    setIsOpen(!isOpen);
-  };
+    setIsOpen(prev => !prev);
+  }, [isOpen, onMarkRead, onPermissionGranted]);
 
   const formatTime = (timestamp: number) => {
     const minutes = Math.floor((Date.now() - timestamp) / 60000);
@@ -65,20 +71,24 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ notification
       
       {/* Notification Panel (YouTube style drawer) */}
       <div 
-        className={`mb-3 w-80 sm:w-96 bg-white/95 backdrop-blur-xl border border-gray-200 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 origin-bottom-right transform ${
+        className={`mb-3 w-80 sm:w-96 bg-white/95 backdrop-blur-xl border border-gray-200 shadow-2xl rounded-2xl overflow-hidden transition-all duration-200 origin-bottom-right transform ${
           isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
         }`}
       >
         <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
           <h3 className="text-sm font-bold text-gray-900">Notificações</h3>
           {notifications.length > 0 && (
-            <button onClick={onClear} className="text-xs text-brand-600 hover:text-brand-800 font-medium">
-              Limpar tudo
+            <button 
+              type="button"
+              onClick={onClear} 
+              className="btn-instant text-xs text-brand-600 hover:text-brand-800 font-medium p-2 min-h-[36px] rounded-lg"
+            >
+              <span className="pointer-events-none">Limpar tudo</span>
             </button>
           )}
         </div>
         
-        <div className="max-h-80 overflow-y-auto scrollbar-hide">
+        <div className="max-h-80 overflow-y-auto scrollbar-hide smooth-scroll">
           {notifications.length === 0 ? (
             <div className="p-8 text-center flex flex-col items-center justify-center text-gray-400">
               <svg className="w-12 h-12 mb-2 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>
@@ -87,23 +97,26 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ notification
           ) : (
             <ul className="divide-y divide-gray-50">
               {notifications.map((notif) => (
-                <li key={notif.id} className="hover:bg-gray-50 transition-colors">
-                  <a href={notif.url || '#'} className="flex p-4 gap-3">
+                <li key={notif.id} className="hover:bg-gray-50">
+                  <a 
+                    href={notif.url || '#'} 
+                    className="btn-instant flex p-4 gap-3 min-h-[64px]"
+                  >
                      {notif.imageUrl ? (
-                       <img src={notif.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover bg-gray-100 flex-shrink-0" />
+                       <img src={notif.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover bg-gray-100 flex-shrink-0 pointer-events-none" />
                      ) : (
-                       <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0 text-brand-600">
+                       <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0 text-brand-600 pointer-events-none">
                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                          </svg>
                        </div>
                      )}
-                     <div className="flex-1 min-w-0">
+                     <div className="flex-1 min-w-0 pointer-events-none">
                        <p className="text-sm font-semibold text-gray-900 line-clamp-1">{notif.title}</p>
                        <p className="text-xs text-gray-600 line-clamp-2 mt-0.5">{notif.message}</p>
                        <p className="text-[10px] text-gray-400 mt-1 font-medium">{formatTime(notif.timestamp)}</p>
                      </div>
-                     {!notif.read && <div className="w-2 h-2 bg-brand-500 rounded-full mt-2"></div>}
+                     {!notif.read && <div className="w-2 h-2 bg-brand-500 rounded-full mt-2 pointer-events-none"></div>}
                   </a>
                 </li>
               ))}
@@ -112,14 +125,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ notification
         </div>
       </div>
 
-      {/* The Bell Button (FAB) */}
+      {/* The Bell Button (FAB) - Otimizado para toque */}
       <button
+        type="button"
         onClick={handleToggle}
-        className="relative group flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-md hover:bg-white border border-gray-200 rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+        className="btn-instant relative group flex items-center justify-center w-14 h-14 bg-white/90 backdrop-blur-md hover:bg-white border border-gray-200 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
         aria-label="Notificações"
       >
         <svg 
-          className={`w-6 h-6 sm:w-7 sm:h-7 text-gray-700 transition-colors group-hover:text-brand-600 ${unreadCount > 0 ? 'animate-swing' : ''}`} 
+          className={`w-7 h-7 text-gray-700 group-hover:text-brand-600 pointer-events-none ${unreadCount > 0 ? 'animate-swing' : ''}`} 
           fill={unreadCount > 0 ? "currentColor" : "none"} 
           viewBox="0 0 24 24" 
           stroke="currentColor"
@@ -128,7 +142,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ notification
         </svg>
         
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 bg-red-600 text-white text-[10px] sm:text-xs font-bold rounded-full border-2 border-white shadow-sm">
+          <span className="absolute -top-1 -right-1 flex items-center justify-center w-6 h-6 bg-red-600 text-white text-xs font-bold rounded-full border-2 border-white shadow-sm pointer-events-none">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

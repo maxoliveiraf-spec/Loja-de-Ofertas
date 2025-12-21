@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Product, UserProfile, Comment } from '../types';
 import { incrementClick, socialService, productService } from '../services/database';
 
@@ -34,36 +34,41 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
   }, [showComments, product.id]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
         setShowOptions(false);
       }
     };
     if (showOptions) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside, { passive: true });
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [showOptions]);
 
-  const handleLike = (e: React.MouseEvent) => {
+  // Handler otimizado para toque - usa useCallback para evitar re-renders
+  const handleLike = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!currentUser) return onAuthRequired();
     const newLikedStatus = !isLiked;
     setIsLiked(newLikedStatus);
     socialService.toggleLike(product.id, currentUser.uid, isLiked).catch(console.error);
-  };
+  }, [currentUser, isLiked, onAuthRequired, product.id]);
 
-  const handleSave = (e: React.MouseEvent) => {
+  const handleSave = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!currentUser) return onAuthRequired();
     const newSavedStatus = !isSaved;
     setIsSaved(newSavedStatus);
     socialService.toggleSave(currentUser.uid, product.id, isSaved).catch(console.error);
-  };
+  }, [currentUser, isSaved, onAuthRequired, product.id]);
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const siteLink = "https://loja-de-ofertas.vercel.app/";
@@ -80,11 +85,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
       navigator.clipboard.writeText(shareMessage);
       alert("Copiado: Link da oferta e informações da loja!");
     }
-  };
+  }, [product.title, product.url]);
 
-  const handlePromoClick = () => {
+  const handlePromoClick = useCallback(() => {
     incrementClick(product.id).catch(console.debug);
-  };
+  }, [product.id]);
+
+  const handleToggleComments = useCallback(() => {
+    setShowComments(prev => !prev);
+  }, []);
+
+  const handleToggleOptions = useCallback(() => {
+    setShowOptions(prev => !prev);
+  }, []);
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +134,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
   const canDelete = isAdmin || (currentUser && product.authorId === currentUser.uid);
 
   return (
-    <div className="bg-white border-b sm:border sm:rounded-xl border-gray-200 overflow-hidden flex flex-col shadow-sm transition-shadow hover:shadow-md h-fit relative">
+    <div className="bg-white border-b sm:border sm:rounded-xl border-gray-200 overflow-hidden flex flex-col shadow-sm hover:shadow-md h-fit relative">
       {/* Header do Post */}
       <div className="flex items-center justify-between p-3">
         <div className="flex items-center gap-2">
@@ -144,33 +157,37 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
           </div>
         </div>
         
-        {/* Menu de Opções */}
+        {/* Menu de Opções - Área de toque expandida */}
         <div className="relative" ref={optionsRef}>
           <button 
-            onClick={() => setShowOptions(!showOptions)}
-            className="text-gray-400 p-2 hover:bg-gray-100 rounded-full active:scale-90 transition-all touch-manipulation"
+            type="button"
+            onClick={handleToggleOptions}
+            className="btn-instant text-gray-400 p-3 hover:bg-gray-100 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Opções"
           >
-             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+             <svg className="w-5 h-5 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
           </button>
           
           {showOptions && (canEdit || canDelete) && (
             <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 overflow-hidden animate-fadeIn">
               {canEdit && (
                 <button 
+                  type="button"
                   onClick={() => { onEdit?.(product); setShowOptions(false); }}
-                  className="w-full text-left px-4 py-5 text-sm font-bold text-gray-700 hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3 border-b border-gray-50 touch-manipulation"
+                  className="btn-instant w-full text-left px-4 py-4 text-sm font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 min-h-[48px]"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                  Editar Oferta
+                  <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                  <span className="pointer-events-none">Editar Oferta</span>
                 </button>
               )}
               {canDelete && (
                 <button 
+                  type="button"
                   onClick={handleDelete}
-                  className="w-full text-left px-4 py-5 text-sm font-bold text-red-600 hover:bg-red-50 active:bg-red-100 flex items-center gap-3 touch-manipulation"
+                  className="btn-instant w-full text-left px-4 py-4 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-3 min-h-[48px]"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  Excluir Oferta
+                  <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <span className="pointer-events-none">Excluir Oferta</span>
                 </button>
               )}
             </div>
@@ -186,7 +203,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         <img 
           src={product.imageUrl || `https://picsum.photos/seed/${product.id}/600/600`} 
           alt={product.title} 
-          className={`w-full h-full object-contain transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          className={`w-full h-full object-contain transition-opacity duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
@@ -198,27 +215,54 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         )}
       </div>
 
-      {/* Barra de Ações */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <div className="flex items-center gap-2">
-          <button onClick={handleLike} className={`${isLiked ? 'text-red-500 scale-110' : 'text-gray-700'} p-3 rounded-full active:scale-125 transition-all touch-manipulation`}>
-            <svg className="w-7 h-7" fill={isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      {/* Barra de Ações - Botões com área de toque otimizada */}
+      <div className="flex items-center justify-between px-2 pt-2 pb-1">
+        <div className="flex items-center gap-0">
+          {/* Botão Curtir */}
+          <button 
+            type="button"
+            onClick={handleLike} 
+            className={`btn-instant ${isLiked ? 'text-red-500' : 'text-gray-700'} p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center`}
+            aria-label={isLiked ? "Descurtir" : "Curtir"}
+          >
+            <svg className={`w-7 h-7 pointer-events-none ${isLiked ? 'scale-110' : ''}`} fill={isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
             </svg>
           </button>
-          <button onClick={() => setShowComments(!showComments)} className="text-gray-700 p-3 rounded-full active:scale-90 transition-all touch-manipulation">
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+          
+          {/* Botão Comentários */}
+          <button 
+            type="button"
+            onClick={handleToggleComments} 
+            className="btn-instant text-gray-700 p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center"
+            aria-label="Comentários"
+          >
+            <svg className="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785 0 00.19.23c.957.045 1.9-.314 2.556-1.003.3-.315.68-.512 1.08-.512h.239c.39 0 .77.054 1.14.155z" />
             </svg>
           </button>
-          <button onClick={handleShare} className="text-gray-700 p-3 rounded-full active:scale-90 transition-all touch-manipulation">
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+          
+          {/* Botão Compartilhar */}
+          <button 
+            type="button"
+            onClick={handleShare} 
+            className="btn-instant text-gray-700 p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center"
+            aria-label="Compartilhar"
+          >
+            <svg className="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           </button>
         </div>
-        <button onClick={handleSave} className={`${isSaved ? 'text-brand-600' : 'text-gray-700'} p-3 rounded-full active:scale-90 transition-all touch-manipulation`}>
-          <svg className="w-7 h-7" fill={isSaved ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+        
+        {/* Botão Salvar */}
+        <button 
+          type="button"
+          onClick={handleSave} 
+          className={`btn-instant ${isSaved ? 'text-brand-600' : 'text-gray-700'} p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center`}
+          aria-label={isSaved ? "Remover dos salvos" : "Salvar"}
+        >
+          <svg className="w-7 h-7 pointer-events-none" fill={isSaved ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
           </svg>
         </button>
@@ -234,7 +278,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         <p className="text-[11px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">{product.description}</p>
         
         {product.commentsCount ? (
-          <button onClick={() => setShowComments(true)} className="text-[11px] text-gray-400 mt-2 text-left active:text-brand-600 h-10 flex items-center touch-manipulation">
+          <button 
+            type="button"
+            onClick={() => setShowComments(true)} 
+            className="btn-instant text-[11px] text-gray-400 mt-2 text-left min-h-[44px] flex items-center"
+          >
             Ver todos os {product.commentsCount} comentários
           </button>
         ) : null}
@@ -246,20 +294,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
             target="_blank"
             rel="noopener noreferrer"
             onClick={handlePromoClick}
-            className="w-full bg-brand-600 text-white text-[14px] font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all touch-manipulation select-none"
-          >
-            Ver a Promoção
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            className="btn-instant w-full bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-extrabold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm min-h-[52px]"
+           >
+            <span className="pointer-events-none">Ver a Promoção</span>
+            <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
           </a>
         </div>
       </div>
 
       {/* Gaveta de Comentários */}
       {showComments && (
-        <div className="bg-gray-50 p-4 border-t border-gray-100 max-h-64 overflow-y-auto animate-fadeIn">
+        <div className="bg-gray-50 p-4 border-t border-gray-100 max-h-64 overflow-y-auto animate-fadeIn smooth-scroll">
           <div className="flex justify-between items-center mb-4">
              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Comentários</span>
-             <button onClick={() => setShowComments(false)} className="text-gray-400 p-3 hover:bg-gray-200 rounded-full active:scale-90 transition-all touch-manipulation">✕</button>
+             <button 
+               type="button"
+               onClick={() => setShowComments(false)} 
+               className="btn-instant text-gray-400 p-3 hover:bg-gray-200 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center"
+               aria-label="Fechar comentários"
+             >
+               <span className="pointer-events-none">✕</span>
+             </button>
           </div>
           <div className="space-y-4 mb-4">
             {comments.map(c => (
@@ -285,7 +340,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
               onChange={(e) => setNewComment(e.target.value)}
               className="flex-1 bg-white border border-gray-200 rounded-full px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-brand-500"
             />
-            <button disabled={!newComment.trim()} className="text-brand-600 font-extrabold text-[12px] uppercase disabled:opacity-30 p-3 active:scale-90 transition-transform touch-manipulation">Postar</button>
+            <button 
+              type="submit"
+              disabled={!newComment.trim()} 
+              className="btn-instant text-brand-600 font-extrabold text-[12px] uppercase disabled:opacity-30 p-3 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <span className="pointer-events-none">Postar</span>
+            </button>
           </form>
         </div>
       )}

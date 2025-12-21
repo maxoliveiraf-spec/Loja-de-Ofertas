@@ -29,8 +29,8 @@
             },
             animation: {
               marquee: 'marquee 25s linear infinite',
-              fadeIn: 'fadeIn 0.2s ease-out',
-              slideUp: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              fadeIn: 'fadeIn 0.15s ease-out',
+              slideUp: 'slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             },
             keyframes: {
               marquee: {
@@ -51,13 +51,14 @@
       }
     </script>
     <style>
-      /* Melhorar responsividade de toque globalmente */
+      /* ========================================
+         OTIMIZAÇÕES PARA TOQUE MOBILE
+         ======================================== */
+      
+      /* Reset de highlight e comportamento de toque */
       * {
         -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
-        /* Evita seleção de texto acidental ao clicar rápido */
-        -webkit-user-select: none;
-        user-select: none;
+        -webkit-touch-callout: none;
       }
       
       /* Permitir seleção apenas em inputs e textareas */
@@ -65,32 +66,115 @@
         -webkit-user-select: text;
         user-select: text;
       }
+      
+      /* Desabilitar seleção em elementos não-texto */
+      button, a, [role="button"], .cursor-pointer {
+        -webkit-user-select: none;
+        user-select: none;
+      }
 
+      /* ========================================
+         BOTÕES E ELEMENTOS INTERATIVOS
+         ======================================== */
+      
+      /* Área de toque mínima para acessibilidade (44x44px mínimo) */
+      button, 
+      a, 
+      [role="button"],
+      .touch-target {
+        position: relative;
+        touch-action: manipulation;
+      }
+      
+      /* Pseudo-elemento para expandir área de toque sem afetar layout */
+      button::before,
+      [role="button"]::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 44px;
+        min-height: 44px;
+        width: 100%;
+        height: 100%;
+      }
+      
+      /* Feedback visual INSTANTÂNEO no toque */
+      button:active,
+      a:active,
+      [role="button"]:active,
+      .cursor-pointer:active {
+        transform: scale(0.95) !important;
+        transition: transform 0ms !important;
+        opacity: 0.85;
+      }
+      
+      /* Restaurar estado normal com transição suave */
+      button,
+      a,
+      [role="button"],
+      .cursor-pointer {
+        transition: transform 100ms ease-out, opacity 100ms ease-out;
+        will-change: transform, opacity;
+      }
+      
+      /* Classe específica para botões com ícones que precisam de resposta rápida */
+      .btn-instant {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      .btn-instant:active {
+        transform: scale(0.9) !important;
+        transition: none !important;
+      }
+
+      /* ========================================
+         SCROLLBAR E OVERFLOW
+         ======================================== */
+      
       .scrollbar-hide::-webkit-scrollbar {
-          display: none;
+        display: none;
       }
       .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
+      
+      /* ========================================
+         ANIMAÇÕES
+         ======================================== */
+      
       .hover\:pause-animation:hover {
         animation-play-state: paused;
       }
-
-      /* Garantir que botões e links tenham área de toque mínima no mobile */
-      button, a, .cursor-pointer {
-        min-height: 48px; /* Aumentado para 48px conforme diretrizes de acessibilidade e toque */
-        min-width: 48px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        /* Força o feedback visual a ser instantâneo ignorando transições no estado ativo */
+      
+      /* Reduzir animações para usuários que preferem movimento reduzido */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
       }
       
-      button:active, a:active {
-        transition: none !important;
-        transform: scale(0.96) !important;
+      /* ========================================
+         PERFORMANCE MOBILE
+         ======================================== */
+      
+      /* Promover elementos interativos para GPU */
+      .gpu-accelerated {
+        transform: translateZ(0);
+        backface-visibility: hidden;
+      }
+      
+      /* Otimizar scroll em containers */
+      .smooth-scroll {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
       }
     </style>
   <script type="importmap">

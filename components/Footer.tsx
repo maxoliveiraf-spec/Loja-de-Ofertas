@@ -17,15 +17,25 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
             <span className="text-sm font-semibold text-gray-900">Guia da Promoção</span>
           </div>
 
-          <div className="flex gap-6">
-             <button className="text-sm text-gray-500 hover:text-brand-600 transition-colors">
-               Termos de Uso
+          <div className="flex gap-2 flex-wrap justify-center">
+             <button 
+               type="button"
+               className="btn-instant text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]"
+             >
+               <span className="pointer-events-none">Termos de Uso</span>
              </button>
-             <button className="text-sm text-gray-500 hover:text-brand-600 transition-colors">
-               Privacidade
+             <button 
+               type="button"
+               className="btn-instant text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]"
+             >
+               <span className="pointer-events-none">Privacidade</span>
              </button>
-             <button onClick={onOpenAdmin} className="text-sm text-gray-500 hover:text-brand-600 transition-colors">
-               Acesso Gestor
+             <button 
+               type="button"
+               onClick={onOpenAdmin} 
+               className="btn-instant text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]"
+             >
+               <span className="pointer-events-none">Acesso Gestor</span>
              </button>
           </div>
 

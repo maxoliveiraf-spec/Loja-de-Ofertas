@@ -1,6 +1,5 @@
 import React from 'react';
 import { Product } from '../types';
-import { ProductCard } from './ProductCard';
 
 interface TopProductsCarouselProps {
   products: Product[];
@@ -30,22 +29,27 @@ export const TopProductsCarousel: React.FC<TopProductsCarouselProps> = ({ produc
         {/* Carousel Container */}
         <div className="relative w-full overflow-hidden">
            {/* Fade Gradients */}
-           <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-brand-50 to-transparent z-10"></div>
-           <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent z-10"></div>
+           <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-brand-50 to-transparent z-10 pointer-events-none"></div>
+           <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
 
            {/* Animated Track */}
            <div className="flex animate-marquee hover:pause-animation">
              {displayProducts.map((product, idx) => (
                <div key={`${product.id}-${idx}`} className="flex-shrink-0 w-48 sm:w-56 px-3">
-                 <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3 h-full flex flex-col transform transition-transform hover:scale-105">
+                 <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3 h-full flex flex-col hover:scale-105 transition-transform duration-200">
                     <div className="h-32 mb-2 flex items-center justify-center overflow-hidden rounded bg-gray-50">
-                       <img src={product.imageUrl} alt={product.title} className="h-full w-full object-contain p-2" />
+                       <img src={product.imageUrl} alt={product.title} className="h-full w-full object-contain p-2" loading="lazy" />
                     </div>
                     <h4 className="text-xs font-semibold text-gray-900 line-clamp-2 mb-1 leading-tight">{product.title}</h4>
                     <div className="mt-auto">
                         <span className="text-sm font-bold text-brand-600 block">{product.estimatedPrice}</span>
-                        <a href={product.url} target="_blank" rel="noopener noreferrer" className="mt-2 block w-full text-center text-[10px] bg-gray-900 text-white py-1 rounded hover:bg-gray-700">
-                          Ver Oferta
+                        <a 
+                          href={product.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="btn-instant mt-2 block w-full text-center text-[10px] bg-gray-900 text-white py-2 rounded hover:bg-gray-700 min-h-[36px] flex items-center justify-center"
+                        >
+                          <span className="pointer-events-none">Ver Oferta</span>
                         </a>
                     </div>
                  </div>
