@@ -254,8 +254,8 @@ function App() {
 
         {/* Modal de Postagem (Aberto para Todos Logados) */}
         {isPostModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slideUp">
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slideUp my-auto">
                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                  <div className="flex items-center gap-2">
                    <svg className="w-5 h-5 text-brand-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
@@ -264,7 +264,7 @@ function App() {
                  <button onClick={() => setIsPostModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600">✕</button>
                </div>
                
-               <form onSubmit={handleAddProduct} className="p-6 space-y-4">
+               <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Link do Mercado Livre</label>
                     <input 
@@ -293,15 +293,26 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Categoria</label>
-                    <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border p-3 rounded-lg text-sm bg-white">
-                       <option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option>
-                    </select>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Descrição da Oferta</label>
+                    <textarea 
+                      placeholder="Fale um pouco sobre o produto ou a promoção..." 
+                      value={formData.description} 
+                      onChange={(e)=>setFormData({...formData, description: e.target.value})} 
+                      className="w-full border p-3 rounded-lg text-sm min-h-[100px] resize-none focus:ring-2 focus:ring-brand-500 outline-none" 
+                    />
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">URL da Imagem do Produto</label>
-                    <input required type="url" placeholder="Copie o link da imagem do produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Categoria</label>
+                      <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border p-3 rounded-lg text-sm bg-white">
+                         <option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">URL da Imagem</label>
+                      <input required type="url" placeholder="Copie o link da imagem" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                    </div>
                   </div>
 
                   {formData.imageUrl && formData.imageUrl.startsWith('http') && (

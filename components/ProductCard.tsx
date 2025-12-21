@@ -41,16 +41,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
   };
 
   const handleShare = async () => {
+    const siteLink = "https://loja-de-ofertas.vercel.app/";
+    const shareText = `🔥 Olha essa oferta: ${product.title}\n\nMais informações\n${siteLink}`;
+    
     const shareData = {
       title: product.title,
-      text: `🔥 Olha essa oferta: ${product.title}`,
+      text: shareText,
       url: product.url,
     };
+
     if (navigator.share) {
-      await navigator.share(shareData).catch(() => {});
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.debug("Share cancelled or failed", err);
+      }
     } else {
-      await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-      alert("Link copiado!");
+      // Fallback for browsers that don't support Web Share API
+      const fullText = `${shareText}\n\nLink da oferta: ${product.url}`;
+      await navigator.clipboard.writeText(fullText);
+      alert("Link e informações copiados para a área de transferência!");
     }
   };
 
