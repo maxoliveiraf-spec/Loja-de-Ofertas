@@ -29,6 +29,9 @@ export interface Product {
   clicks?: number;
   likes?: string[]; // Array of user IDs
   commentsCount?: number;
+  authorName?: string;
+  authorPhoto?: string;
+  authorId?: string;
 }
 
 export interface UserProfile {

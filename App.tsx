@@ -8,6 +8,7 @@ import { SEO } from './components/SEO';
 import { NotificationBell, NotificationItem } from './components/NotificationBell';
 import { Product, ProductStatus, UserProfile } from './types';
 import { productService, isFirebaseConfigured, trackSiteVisit, trackNotificationSent, socialService } from './services/database';
+import { enrichProductData } from './services/geminiService';
 import { Footer } from './components/Footer';
 
 const GOOGLE_CLIENT_ID = "14302060436-3nsfssbbrs3fgrphslk1g9nncura8nnb.apps.googleusercontent.com"; 
@@ -15,13 +16,12 @@ const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
   
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [isAuthorized, setIsAuthorized] = useState(false); 
-  
   const [filterCategory, setFilterCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -30,7 +30,16 @@ function App() {
   const authModalGoogleRef = useRef<HTMLDivElement>(null);
   const [dbError, setDbError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({ url: '', title: '', estimatedPrice: '', category: 'Eletrônicos', imageUrl: '', description: '' });
+  const [formData, setFormData] = useState({ 
+    url: '', 
+    title: '', 
+    estimatedPrice: '', 
+    category: 'Eletrônicos', 
+    imageUrl: '', 
+    description: '' 
+  });
+
+  const isUserAdmin = user?.email === ADMIN_EMAIL;
 
   useEffect(() => {
     trackSiteVisit();
@@ -53,9 +62,8 @@ function App() {
     return () => unsubscribe();
   }, [products.length]);
 
-  // Auth Management
   useEffect(() => {
-    if ((isAdminOpen || isAnalyticsOpen || isAuthModalOpen) && !user && window.google) {
+    if ((isPostModalOpen || isAnalyticsOpen || isAuthModalOpen) && !user && window.google) {
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: handleGoogleCallback
@@ -66,7 +74,7 @@ function App() {
         window.google.accounts.id.renderButton(target.current, { theme: "outline", size: "large", width: 250 });
       }
     }
-  }, [isAdminOpen, isAnalyticsOpen, isAuthModalOpen, user]);
+  }, [isPostModalOpen, isAnalyticsOpen, isAuthModalOpen, user]);
 
   const handleGoogleCallback = async (response: any) => {
     const base64Url = response.credential.split('.')[1];
@@ -84,8 +92,6 @@ function App() {
 
     const dbProfile = await socialService.getUserProfile(newUser.uid);
     setUser({ ...newUser, ...dbProfile });
-
-    if (payload.email === ADMIN_EMAIL) setIsAuthorized(true);
     setIsAuthModalOpen(false);
   };
 
@@ -94,11 +100,82 @@ function App() {
      trackNotificationSent();
   };
 
+  // Validação rigorosa de URL do Mercado Livre
+  const isValidMercadoLivreUrl = (url: string) => {
+    // Aceita links normais (.com.br) e links curtos (/sec/)
+    const mlRegex = /^(https?:\/\/)?(www\.)?(mercadolivre\.com(\.br)?|mlstatic\.com|mercadolivre\.com\/sec\/)\/.+$/i;
+    return mlRegex.test(url.trim());
+  };
+
+  const handleUrlChange = async (url: string) => {
+    setFormData(prev => ({ ...prev, url }));
+    if (isValidMercadoLivreUrl(url) && !formData.title) {
+      setIsEnriching(true);
+      try {
+        const enriched = await enrichProductData(url);
+        setFormData(prev => ({
+          ...prev,
+          title: enriched.title || prev.title,
+          description: enriched.description || prev.description,
+          category: enriched.category || prev.category,
+          estimatedPrice: enriched.estimatedPrice || prev.estimatedPrice
+        }));
+      } catch (e) {
+        console.error("Enrichment failed", e);
+      } finally {
+        setIsEnriching(false);
+      }
+    }
+  };
+
   const handleAddProduct = async (e: any) => {
     e.preventDefault();
-    await productService.add({ ...formData, status: ProductStatus.READY, addedAt: Date.now() });
-    setFormData({ url: '', title: '', estimatedPrice: '', category: 'Eletrônicos', imageUrl: '', description: '' });
-    alert("Adicionado!");
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    // 1. Verificar se é Mercado Livre
+    if (!isValidMercadoLivreUrl(formData.url)) {
+      alert("Erro: Apenas links oficiais do Mercado Livre são permitidos (ex: mercadolivre.com/sec/...)!");
+      return;
+    }
+
+    // 2. Verificar se tem título e preço
+    if (!formData.title.trim() || !formData.estimatedPrice.trim()) {
+      alert("Erro: Título e Preço são obrigatórios para postar a oferta.");
+      return;
+    }
+
+    // 3. Verificar se tem imagem válida
+    if (!formData.imageUrl.trim() || !formData.imageUrl.startsWith('http')) {
+      alert("Erro: Link da imagem é obrigatório e deve ser um link válido (http/https).");
+      return;
+    }
+
+    // 4. Bloquear links de outras redes ou plataformas
+    const blacklist = ['facebook.com', 'instagram.com', 'shopee.com', 'amazon.com.br'];
+    if (blacklist.some(domain => formData.url.toLowerCase().includes(domain))) {
+       alert("Erro: Este site aceita apenas ofertas do Mercado Livre no momento.");
+       return;
+    }
+
+    try {
+      await productService.add({ 
+        ...formData, 
+        status: ProductStatus.READY, 
+        addedAt: Date.now(),
+        authorName: user.displayName,
+        authorPhoto: user.photoURL,
+        authorId: user.uid
+      });
+
+      setFormData({ url: '', title: '', estimatedPrice: '', category: 'Eletrônicos', imageUrl: '', description: '' });
+      setIsPostModalOpen(false);
+      alert("🎉 Oferta publicada com sucesso na comunidade!");
+    } catch (err) {
+      alert("Erro ao publicar. Verifique sua conexão.");
+    }
   };
 
   const filteredProducts = products.filter(p => {
@@ -113,20 +190,18 @@ function App() {
         <SEO products={products} />
 
         <Header 
-          onOpenAdmin={() => setIsAdminOpen(true)}
-          onOpenAnalytics={() => setIsAnalyticsOpen(true)}
+          onOpenAdmin={() => user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true)}
+          onOpenAnalytics={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito apenas ao gestor do site.")}
           totalProducts={products.length}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
         />
 
         <main className="flex-1 w-full max-w-7xl mx-auto py-0 sm:py-8 sm:px-4">
-            {/* Top Carousel apenas Desktop */}
             <div className="hidden sm:block mb-8">
               <TopProductsCarousel products={products} />
             </div>
 
-            {/* Categoria Filter Bar Mobile (Estilo Story Circle) */}
             <div className="sm:hidden flex overflow-x-auto gap-4 p-4 scrollbar-hide border-b border-gray-100 bg-white sticky top-16 z-30">
                {['Todos', 'Eletrônicos', 'Moda', 'Casa', 'Beleza'].map(cat => (
                  <button 
@@ -144,71 +219,121 @@ function App() {
                ))}
             </div>
 
-            {/* GRID / FEED CONTAINER */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-6 lg:gap-8 max-w-lg sm:max-w-none mx-auto">
+            {/* Painel de Gestor (Analytics) */}
+            {isAnalyticsOpen && isUserAdmin && (
+              <div className="mb-12 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
+                <div className="flex justify-between items-center mb-6">
+                   <h2 className="text-xl font-bold text-gray-900">Estatísticas do Gestor</h2>
+                   <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors">Fechar Painel</button>
+                </div>
+                <AnalyticsDashboard products={products} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-6 lg:gap-8 max-w-lg sm:max-w-none mx-auto items-start align-top">
                {filteredProducts.map(p => (
-                 <ProductCard 
-                   key={p.id} 
-                   product={p} 
-                   currentUser={user} 
-                   onAuthRequired={() => setIsAuthModalOpen(true)}
-                 />
+                 <div key={p.id} className="self-start">
+                   <ProductCard 
+                     product={p} 
+                     currentUser={user} 
+                     onAuthRequired={() => setIsAuthModalOpen(true)}
+                   />
+                 </div>
                ))}
             </div>
-
-            {products.length === 0 && (
+            {filteredProducts.length === 0 && (
               <div className="text-center py-20 px-4">
-                <p className="text-gray-400 italic">Nenhuma oferta por aqui ainda...</p>
+                <p className="text-gray-400 italic">Nenhuma oferta encontrada para sua busca...</p>
               </div>
             )}
         </main>
 
-        <Footer onOpenAdmin={() => setIsAdminOpen(true)} />
+        <Footer onOpenAdmin={() => user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true)} />
 
         <NotificationBell notifications={notifications} onClear={() => setNotifications([])} onMarkRead={() => {}} />
 
-        {/* Modal de Login (Estilo Social) */}
+        {/* Modal de Postagem (Aberto para Todos Logados) */}
+        {isPostModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slideUp">
+               <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                 <div className="flex items-center gap-2">
+                   <svg className="w-5 h-5 text-brand-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+                   <h2 className="font-bold text-gray-900">Enviar Nova Oferta ML</h2>
+                 </div>
+                 <button onClick={() => setIsPostModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600">✕</button>
+               </div>
+               
+               <form onSubmit={handleAddProduct} className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Link do Mercado Livre</label>
+                    <input 
+                      required
+                      type="url"
+                      placeholder="https://mercadolivre.com/sec/..." 
+                      value={formData.url} 
+                      onChange={(e) => handleUrlChange(e.target.value)} 
+                      className={`w-full border p-3 rounded-lg text-sm outline-none focus:ring-2 ${isValidMercadoLivreUrl(formData.url) || !formData.url ? 'focus:ring-brand-500' : 'focus:ring-red-500 border-red-200'}`} 
+                    />
+                    {!isValidMercadoLivreUrl(formData.url) && formData.url && (
+                      <p className="text-[10px] text-red-500 mt-1 font-bold italic">Link inválido! Use apenas links do Mercado Livre.</p>
+                    )}
+                    {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse mt-1 font-bold">Lendo dados do produto...</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Título da Oferta</label>
+                      <input required placeholder="Ex: iPhone 15 Pro Max" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Preço Atual</label>
+                      <input required placeholder="Ex: R$ 7.499,00" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Categoria</label>
+                    <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border p-3 rounded-lg text-sm bg-white">
+                       <option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">URL da Imagem do Produto</label>
+                    <input required type="url" placeholder="Copie o link da imagem do produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                  </div>
+
+                  {formData.imageUrl && formData.imageUrl.startsWith('http') && (
+                    <div className="h-32 w-full bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden border border-dashed">
+                       <img src={formData.imageUrl} className="h-full object-contain" alt="Preview" onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x400?text=Erro+na+Imagem')} />
+                    </div>
+                  )}
+
+                  <button 
+                    disabled={!isValidMercadoLivreUrl(formData.url) || isEnriching}
+                    type="submit" 
+                    className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    Publicar Oferta Agora
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                  </button>
+               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Login (Reutilizado) */}
         {isAuthModalOpen && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
             <div className="bg-white rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl">
               <div className="w-16 h-16 bg-brand-50 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
               </div>
-              <h3 className="text-xl font-extrabold mb-2 text-gray-900">Entre para interagir</h3>
-              <p className="text-xs text-gray-500 mb-8 leading-relaxed">Você precisa estar logado para curtir, comentar e salvar suas ofertas favoritas!</p>
+              <h3 className="text-xl font-extrabold mb-2 text-gray-900">Entre para continuar</h3>
+              <p className="text-xs text-gray-500 mb-8 leading-relaxed">Você precisa estar logado para postar ofertas e interagir com a comunidade!</p>
               <div ref={authModalGoogleRef} className="flex justify-center mb-6"></div>
-              <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-bold uppercase tracking-widest hover:text-gray-600 transition-colors">Depois</button>
-            </div>
-          </div>
-        )}
-
-        {/* Admin Modal */}
-        {isAdminOpen && (
-          <div className="fixed inset-0 z-[100] bg-white overflow-y-auto sm:bg-black/50 sm:flex sm:items-center sm:justify-center sm:p-4">
-            <div className="bg-white w-full h-full sm:h-auto sm:max-w-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col">
-               <div className="p-4 border-b flex justify-between items-center bg-white">
-                 <h2 className="font-bold text-lg">Área do Gestor</h2>
-                 <button onClick={() => setIsAdminOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500">✕</button>
-               </div>
-               <div className="p-6 overflow-y-auto">
-                  {!isAuthorized ? (
-                    <div className="text-center py-10">
-                       <p className="mb-6 text-sm text-gray-500 italic">Apenas administradores podem acessar esta seção.</p>
-                       <div ref={googleButtonRef} className="flex justify-center"></div>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleAddProduct} className="space-y-4">
-                       <input name="url" placeholder="Link do Afiliado" value={formData.url} onChange={(e)=>setFormData({...formData, url: e.target.value})} className="w-full border p-2 rounded text-sm" />
-                       <input name="title" placeholder="Título do Produto" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border p-2 rounded text-sm" />
-                       <input name="estimatedPrice" placeholder="Preço (ex: R$ 199,00)" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border p-2 rounded text-sm" />
-                       <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border p-2 rounded text-sm">
-                          <option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option>
-                       </select>
-                       <input name="imageUrl" placeholder="Link da Imagem" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-2 rounded text-sm" />
-                       <button type="submit" className="w-full bg-brand-600 text-white font-bold py-3 rounded text-sm shadow-md">Publicar Oferta</button>
-                    </form>
-                  )}
-               </div>
+              <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">Fechar</button>
             </div>
           </div>
         )}

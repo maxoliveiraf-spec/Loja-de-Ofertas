@@ -1,4 +1,3 @@
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { Product, ProductStatus, BlogPost, UserProfile, Comment } from '../types';
@@ -38,7 +37,12 @@ export const productService = {
   },
   add: async (product: Omit<Product, 'id'>) => {
     if (!db) return;
-    await addDoc(collection(db, "products"), { ...product, clicks: 0, likes: [], commentsCount: 0 });
+    await addDoc(collection(db, "products"), { 
+      ...product, 
+      clicks: 0, 
+      likes: [], 
+      commentsCount: 0 
+    });
   },
   delete: async (id: string) => {
     if (!db) return;
@@ -87,7 +91,6 @@ export const socialService = {
   }
 };
 
-// Added missing blogService for Blog component
 export const blogService = {
   subscribeToPosts: (onUpdate: (posts: BlogPost[]) => void) => {
     if (!db) { onUpdate([]); return () => {}; }
