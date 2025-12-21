@@ -44,6 +44,11 @@ export const productService = {
       commentsCount: 0 
     });
   },
+  update: async (id: string, product: Partial<Product>) => {
+    if (!db) return;
+    const ref = doc(db, "products", id);
+    await updateDoc(ref, product);
+  },
   delete: async (id: string) => {
     if (!db) return;
     await deleteDoc(doc(db, "products", id));

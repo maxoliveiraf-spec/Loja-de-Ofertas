@@ -7,7 +7,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SEO } from './components/SEO';
 import { NotificationBell, NotificationItem } from './components/NotificationBell';
 import { Product, ProductStatus, UserProfile } from './types';
-import { productService, isFirebaseConfigured, trackSiteVisit, trackNotificationSent, socialService } from './services/database';
+import { productService, trackSiteVisit, trackNotificationSent, socialService } from './services/database';
 import { enrichProductData } from './services/geminiService';
 import { Footer } from './components/Footer';
 
@@ -30,6 +30,7 @@ function App() {
   const authModalGoogleRef = useRef<HTMLDivElement>(null);
   const [dbError, setDbError] = useState<string | null>(null);
 
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({ 
     url: '', 
     title: '', 
@@ -100,16 +101,14 @@ function App() {
      trackNotificationSent();
   };
 
-  // Validação rigorosa de URL do Mercado Livre
   const isValidMercadoLivreUrl = (url: string) => {
-    // Aceita links normais (.com.br) e links curtos (/sec/)
     const mlRegex = /^(https?:\/\/)?(www\.)?(mercadolivre\.com(\.br)?|mlstatic\.com|mercadolivre\.com\/sec\/)\/.+$/i;
     return mlRegex.test(url.trim());
   };
 
   const handleUrlChange = async (url: string) => {
     setFormData(prev => ({ ...prev, url }));
-    if (isValidMercadoLivreUrl(url) && !formData.title) {
+    if (!editingProduct && isValidMercadoLivreUrl(url) && !formData.title) {
       setIsEnriching(true);
       try {
         const enriched = await enrichProductData(url);
@@ -135,47 +134,54 @@ function App() {
       return;
     }
 
-    // 1. Verificar se é Mercado Livre
     if (!isValidMercadoLivreUrl(formData.url)) {
-      alert("Erro: Apenas links oficiais do Mercado Livre são permitidos (ex: mercadolivre.com/sec/...)!");
+      alert("Erro: Apenas links oficiais do Mercado Livre são permitidos!");
       return;
     }
 
-    // 2. Verificar se tem título e preço
-    if (!formData.title.trim() || !formData.estimatedPrice.trim()) {
-      alert("Erro: Título e Preço são obrigatórios para postar a oferta.");
+    if (!formData.title.trim() || !formData.estimatedPrice.trim() || !formData.imageUrl.trim()) {
+      alert("Erro: Preencha todos os campos obrigatórios.");
       return;
-    }
-
-    // 3. Verificar se tem imagem válida
-    if (!formData.imageUrl.trim() || !formData.imageUrl.startsWith('http')) {
-      alert("Erro: Link da imagem é obrigatório e deve ser um link válido (http/https).");
-      return;
-    }
-
-    // 4. Bloquear links de outras redes ou plataformas
-    const blacklist = ['facebook.com', 'instagram.com', 'shopee.com', 'amazon.com.br'];
-    if (blacklist.some(domain => formData.url.toLowerCase().includes(domain))) {
-       alert("Erro: Este site aceita apenas ofertas do Mercado Livre no momento.");
-       return;
     }
 
     try {
-      await productService.add({ 
-        ...formData, 
-        status: ProductStatus.READY, 
-        addedAt: Date.now(),
-        authorName: user.displayName,
-        authorPhoto: user.photoURL,
-        authorId: user.uid
-      });
+      if (editingProduct) {
+        await productService.update(editingProduct.id, {
+          ...formData,
+          category: formData.category
+        });
+        alert("🎉 Oferta atualizada com sucesso!");
+      } else {
+        await productService.add({ 
+          ...formData, 
+          status: ProductStatus.READY, 
+          addedAt: Date.now(),
+          authorName: user.displayName,
+          authorPhoto: user.photoURL,
+          authorId: user.uid
+        });
+        alert("🎉 Oferta publicada com sucesso na comunidade!");
+      }
 
       setFormData({ url: '', title: '', estimatedPrice: '', category: 'Eletrônicos', imageUrl: '', description: '' });
+      setEditingProduct(null);
       setIsPostModalOpen(false);
-      alert("🎉 Oferta publicada com sucesso na comunidade!");
     } catch (err) {
-      alert("Erro ao publicar. Verifique sua conexão.");
+      alert("Erro ao salvar. Verifique sua conexão.");
     }
+  };
+
+  const openEdit = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      url: product.url,
+      title: product.title,
+      estimatedPrice: product.estimatedPrice || '',
+      category: product.category,
+      imageUrl: product.imageUrl || '',
+      description: product.description || ''
+    });
+    setIsPostModalOpen(true);
   };
 
   const filteredProducts = products.filter(p => {
@@ -190,7 +196,7 @@ function App() {
         <SEO products={products} />
 
         <Header 
-          onOpenAdmin={() => user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true)}
+          onOpenAdmin={() => { setEditingProduct(null); setFormData({url:'',title:'',estimatedPrice:'',category:'Eletrônicos',imageUrl:'',description:''}); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }}
           onOpenAnalytics={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito apenas ao gestor do site.")}
           totalProducts={products.length}
           searchQuery={searchQuery}
@@ -219,7 +225,6 @@ function App() {
                ))}
             </div>
 
-            {/* Painel de Gestor (Analytics) */}
             {isAnalyticsOpen && isUserAdmin && (
               <div className="mb-12 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
                 <div className="flex justify-between items-center mb-6">
@@ -237,6 +242,8 @@ function App() {
                      product={p} 
                      currentUser={user} 
                      onAuthRequired={() => setIsAuthModalOpen(true)}
+                     onEdit={openEdit}
+                     isAdmin={isUserAdmin}
                    />
                  </div>
                ))}
@@ -252,14 +259,14 @@ function App() {
 
         <NotificationBell notifications={notifications} onClear={() => setNotifications([])} onMarkRead={() => {}} />
 
-        {/* Modal de Postagem (Aberto para Todos Logados) */}
+        {/* Modal de Postagem / Edição */}
         {isPostModalOpen && (
           <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slideUp my-auto">
                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                  <div className="flex items-center gap-2">
                    <svg className="w-5 h-5 text-brand-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-                   <h2 className="font-bold text-gray-900">Enviar Nova Oferta ML</h2>
+                   <h2 className="font-bold text-gray-900">{editingProduct ? 'Editar Oferta' : 'Enviar Nova Oferta ML'}</h2>
                  </div>
                  <button onClick={() => setIsPostModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600">✕</button>
                </div>
@@ -295,7 +302,7 @@ function App() {
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Descrição da Oferta</label>
                     <textarea 
-                      placeholder="Fale um pouco sobre o produto ou a promoção..." 
+                      placeholder="Fale um pouco sobre o produto..." 
                       value={formData.description} 
                       onChange={(e)=>setFormData({...formData, description: e.target.value})} 
                       className="w-full border p-3 rounded-lg text-sm min-h-[100px] resize-none focus:ring-2 focus:ring-brand-500 outline-none" 
@@ -326,7 +333,7 @@ function App() {
                     type="submit" 
                     className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
                   >
-                    Publicar Oferta Agora
+                    {editingProduct ? 'Salvar Alterações' : 'Publicar Oferta Agora'}
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
                   </button>
                </form>
@@ -334,7 +341,7 @@ function App() {
           </div>
         )}
 
-        {/* Modal de Login (Reutilizado) */}
+        {/* Modal de Login */}
         {isAuthModalOpen && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
             <div className="bg-white rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl">
