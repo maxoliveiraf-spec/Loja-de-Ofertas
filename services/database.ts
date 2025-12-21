@@ -1,8 +1,8 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc } from 'firebase/firestore';
-import { Product, ProductStatus } from '../types';
 
-// --- CONFIGURAÇÃO DO FIREBASE ---
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { Product, ProductStatus, BlogPost, UserProfile, Comment } from '../types';
+
 const firebaseConfig = {
   apiKey: "AIzaSyDTBF78irSEk_VcFZ9p-VKdTCo_7mInM0g",
   authDomain: "lojaofertas-73c65.firebaseapp.com",
@@ -13,7 +13,6 @@ const firebaseConfig = {
   measurementId: "G-CM26GM6XZ9"
 };
 
-// Inicializa o Firebase
 let db: any = null;
 export let isFirebaseConfigured = false;
 
@@ -26,138 +25,113 @@ try {
 }
 
 export const productService = {
-  // Inscreve-se para atualizações em tempo real
   subscribe: (onUpdate: (products: Product[]) => void, onError?: (error: any) => void) => {
-    if (!db) {
-      onUpdate([]);
-      return () => {};
-    }
-
-    try {
-      const q = query(collection(db, "products"), orderBy("addedAt", "desc"));
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const products = snapshot.docs.map(doc => {
-          const data = doc.data();
-          // Explicit mapping to ensure clean JSON object and avoid circular refs from Firestore internals
-          return {
-            id: doc.id,
-            url: data.url || '',
-            title: data.title || '',
-            description: data.description || '',
-            category: data.category || 'Outros',
-            estimatedPrice: data.estimatedPrice || '',
-            imageUrl: data.imageUrl || '',
-            videoUrl: data.videoUrl || '',
-            imageSearchTerm: data.imageSearchTerm || '',
-            status: data.status || ProductStatus.READY,
-            addedAt: data.addedAt || Date.now(),
-            clicks: data.clicks || 0
-          } as Product;
-        });
-        onUpdate(products);
-      }, (error) => {
-        console.error("Erro ao buscar produtos do Firestore:", error);
-        if (onError) onError(error);
-      });
-
-      return unsubscribe;
-    } catch (err) {
-      console.error("Erro ao criar subscrição:", err);
-      if (onError) onError(err);
-      return () => {};
-    }
+    if (!db) { onUpdate([]); return () => {}; }
+    const q = query(collection(db, "products"), orderBy("addedAt", "desc"));
+    return onSnapshot(q, (snapshot) => {
+      const products = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Product));
+      onUpdate(products);
+    }, onError);
   },
-
   add: async (product: Omit<Product, 'id'>) => {
-    if (!db) throw new Error("Firebase não inicializado corretamente.");
-    
-    // Adiciona ao Firestore. O ID é gerado automaticamente pelo Firebase.
-    await addDoc(collection(db, "products"), {
-        ...product,
-        clicks: 0 // Initialize clicks
+    if (!db) return;
+    await addDoc(collection(db, "products"), { ...product, clicks: 0, likes: [], commentsCount: 0 });
+  },
+  delete: async (id: string) => {
+    if (!db) return;
+    await deleteDoc(doc(db, "products", id));
+  }
+};
+
+// Social Features
+export const socialService = {
+  toggleLike: async (productId: string, userId: string, isLiked: boolean) => {
+    if (!db) return;
+    const ref = doc(db, "products", productId);
+    await updateDoc(ref, {
+      likes: isLiked ? arrayRemove(userId) : arrayUnion(userId)
     });
   },
+  addComment: async (productId: string, comment: Omit<Comment, 'id'>) => {
+    if (!db) return;
+    await addDoc(collection(db, "products", productId, "comments"), comment);
+    await updateDoc(doc(db, "products", productId), {
+      commentsCount: increment(1)
+    });
+  },
+  subscribeComments: (productId: string, onUpdate: (comments: Comment[]) => void) => {
+    if (!db) return () => {};
+    const q = query(collection(db, "products", productId, "comments"), orderBy("timestamp", "asc"));
+    return onSnapshot(q, (snapshot) => {
+      onUpdate(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Comment)));
+    });
+  },
+  toggleSave: async (userId: string, productId: string, isSaved: boolean) => {
+    if (!db) return;
+    const ref = doc(db, "users", userId);
+    try {
+      await updateDoc(ref, {
+        savedProducts: isSaved ? arrayRemove(productId) : arrayUnion(productId)
+      });
+    } catch (e) {
+      await setDoc(ref, { savedProducts: [productId] }, { merge: true });
+    }
+  },
+  getUserProfile: async (userId: string): Promise<UserProfile | null> => {
+    if (!db) return null;
+    const snap = await getDoc(doc(db, "users", userId));
+    return snap.exists() ? snap.data() as UserProfile : null;
+  }
+};
 
-  delete: async (id: string) => {
-    if (!db) throw new Error("Firebase não inicializado corretamente.");
-    await deleteDoc(doc(db, "products", id));
+// Added missing blogService for Blog component
+export const blogService = {
+  subscribeToPosts: (onUpdate: (posts: BlogPost[]) => void) => {
+    if (!db) { onUpdate([]); return () => {}; }
+    const q = query(collection(db, "blog_posts"), orderBy("publishedAt", "desc"));
+    return onSnapshot(q, (snapshot) => {
+      const posts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as BlogPost));
+      onUpdate(posts);
+    });
+  },
+  incrementView: async (id: string) => {
+    if (!db) return;
+    await updateDoc(doc(db, "blog_posts", id), { views: increment(1) });
   }
 };
 
 export const incrementClick = async (productId: string) => {
   if (!db) return;
-  try {
-    const productRef = doc(db, "products", productId);
-    await updateDoc(productRef, {
-      clicks: increment(1)
-    });
-  } catch (error) {
-    console.error("Error incrementing click:", error);
-  }
+  await updateDoc(doc(db, "products", productId), { clicks: increment(1) });
 };
-
-// --- ANALYTICS & NOTIFICATIONS ---
 
 export const trackSiteVisit = async () => {
   if (!db) return;
-  try {
-    await addDoc(collection(db, "site_visits"), {
-      timestamp: Date.now(),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      referrer: typeof document !== 'undefined' ? document.referrer : '',
-      date: new Date().toISOString()
-    });
-  } catch (error) {
-    // Silent fail for analytics
-    console.debug("Error tracking visit:", error);
-  }
+  await addDoc(collection(db, "site_visits"), { timestamp: Date.now(), date: new Date().toISOString() });
 };
 
 export const getSiteStats = async () => {
   if (!db) return 0;
-  try {
-    // Limit to 1000 to save reads and bandwidth while giving a good estimate
-    const q = query(collection(db, "site_visits"), limit(1000));
-    const snapshot = await getDocs(q);
-    return snapshot.size;
-  } catch (error) {
-    console.error("Erro ao buscar estatísticas:", error);
-    return 0;
-  }
+  const q = query(collection(db, "site_visits"), limit(1000));
+  const snapshot = await getDocs(q);
+  return snapshot.size;
 };
 
-// Increment global notification counter
 export const trackNotificationSent = async () => {
   if (!db) return;
-  try {
-    const statsRef = doc(db, "stats", "global");
-    // Ensure document exists
-    try {
-       await updateDoc(statsRef, {
-         notificationsSent: increment(1)
-       });
-    } catch (e) {
-       // Create if doesn't exist
-       await setDoc(statsRef, { notificationsSent: 1 }, { merge: true });
-    }
-  } catch (error) {
-    console.debug("Error tracking notification:", error);
-  }
+  const statsRef = doc(db, "stats", "global");
+  try { await updateDoc(statsRef, { notificationsSent: increment(1) }); }
+  catch (e) { await setDoc(statsRef, { notificationsSent: 1 }, { merge: true }); }
 };
 
-// Get global notification count
 export const getNotificationStats = async () => {
   if (!db) return 0;
-  try {
-    const statsRef = doc(db, "stats", "global");
-    const docSnap = await getDoc(statsRef);
-    if (docSnap.exists()) {
-      return docSnap.data().notificationsSent || 0;
-    }
-    return 0;
-  } catch (error) {
-    console.error("Error fetching notification stats:", error);
-    return 0;
-  }
+  const docSnap = await getDoc(doc(db, "stats", "global"));
+  return docSnap.exists() ? docSnap.data().notificationsSent || 0 : 0;
 };

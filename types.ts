@@ -5,6 +5,15 @@ export enum ProductStatus {
   ERROR = 'ERROR'
 }
 
+export interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface Product {
   id: string;
   url: string;
@@ -18,19 +27,30 @@ export interface Product {
   status: ProductStatus;
   addedAt: number;
   clicks?: number;
+  likes?: string[]; // Array of user IDs
+  commentsCount?: number;
 }
 
-export interface SiteStats {
-  totalVisits: number;
-  productClicks: number;
-  referrers: Record<string, number>;
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL: string;
+  savedProducts?: string[]; // Array of product IDs
 }
 
-export interface AppConfig {
-  lastSync: number;
+export interface BlogPost {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  imageUrl: string;
+  affiliateUrl: string;
+  tags: string[];
+  publishedAt: number;
+  views?: number;
 }
 
-// Type definitions for Google Identity Services
 declare global {
   interface Window {
     google: {

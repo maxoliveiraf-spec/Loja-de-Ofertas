@@ -1,198 +1,191 @@
-import React, { useState } from 'react';
-import { Product, ProductStatus } from '../types';
-import { incrementClick } from '../services/database';
+import React, { useState, useEffect } from 'react';
+import { Product, UserProfile, Comment } from '../types';
+import { incrementClick, socialService } from '../services/database';
 
 interface ProductCardProps {
   product: Product;
+  currentUser: UserProfile | null;
+  onAuthRequired: () => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const [copied, setCopied] = useState(false);
+export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, onAuthRequired }) => {
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
 
-  // Helper to extract YouTube Embed URL
-  const getYouTubeEmbedUrl = (url: string | undefined) => {
-    if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
-    const match = url.match(regExp);
-    
-    if (match && match[2].length === 11) {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      return `https://www.youtube-nocookie.com/embed/${match[2]}?controls=1&modestbranding=1&rel=0&playsinline=1&origin=${origin}`;
+  useEffect(() => {
+    if (currentUser) {
+      setIsLiked(product.likes?.includes(currentUser.uid) || false);
+      setIsSaved(currentUser.savedProducts?.includes(product.id) || false);
     }
-    return null;
+  }, [currentUser, product.likes]);
+
+  useEffect(() => {
+    if (showComments) {
+      return socialService.subscribeComments(product.id, setComments);
+    }
+  }, [showComments, product.id]);
+
+  const handleLike = async () => {
+    if (!currentUser) return onAuthRequired();
+    setIsLiked(!isLiked);
+    await socialService.toggleLike(product.id, currentUser.uid, isLiked);
   };
 
-  const embedUrl = getYouTubeEmbedUrl(product.videoUrl);
+  const handleSave = async () => {
+    if (!currentUser) return onAuthRequired();
+    setIsSaved(!isSaved);
+    await socialService.toggleSave(currentUser.uid, product.id, isSaved);
+  };
 
-  const imageUrl = product.imageUrl || 
-    (product.imageSearchTerm 
-      ? `https://picsum.photos/seed/${product.imageSearchTerm.replace(/\s+/g, '')}/400/400` 
-      : `https://picsum.photos/seed/${product.id}/400/400`);
-
-  const handleShare = async (e: React.MouseEvent) => {
-    e.preventDefault(); 
-    e.stopPropagation();
-
+  const handleShare = async () => {
     const shareData = {
       title: product.title,
-      text: `🔥 Olha essa oferta: ${product.title} ${product.estimatedPrice ? `por apenas ${product.estimatedPrice}` : ''}. Confira aqui:`,
+      text: `🔥 Olha essa oferta: ${product.title}`,
       url: product.url,
     };
-
     if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (error) {
-        console.debug('Share cancelled');
-      }
+      await navigator.share(shareData).catch(() => {});
     } else {
-      try {
-        const textToCopy = `${shareData.text} ${shareData.url}`;
-        await navigator.clipboard.writeText(textToCopy);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (error) {
-        console.error('Failed to copy text');
-      }
+      await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+      alert("Link copiado!");
     }
   };
 
-  const handleProductClick = () => {
-    // Track click in database
-    incrementClick(product.id);
-    
-    // Save to local storage for "Personalized Notification" re-engagement
-    try {
-      const historyItem = {
-        id: product.id,
-        title: product.title,
-        url: product.url,
-        imageUrl: imageUrl,
-        timestamp: Date.now()
-      };
-      
-      const historyStr = localStorage.getItem('productHistory');
-      let history = historyStr ? JSON.parse(historyStr) : [];
-      
-      // Remove duplicates (keep latest) and limit size
-      history = history.filter((h: any) => h.id !== product.id);
-      history.unshift(historyItem); // Add to front
-      if (history.length > 10) history.pop();
-      
-      localStorage.setItem('productHistory', JSON.stringify(history));
-    } catch (e) {
-      console.error("Local storage error", e);
-    }
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return onAuthRequired();
+    if (!newComment.trim()) return;
+
+    await socialService.addComment(product.id, {
+      userId: currentUser.uid,
+      userName: currentUser.displayName,
+      userPhoto: currentUser.photoURL,
+      text: newComment,
+      timestamp: Date.now()
+    });
+    setNewComment('');
   };
-
-  if (product.status === ProductStatus.PENDING || product.status === ProductStatus.ENRICHING) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden h-full flex flex-col animate-pulse">
-        <div className="h-64 bg-gray-100"></div>
-        <div className="p-4 flex-1 space-y-3">
-          <div className="h-4 bg-gray-100 rounded w-3/4"></div>
-          <div className="h-6 bg-gray-100 rounded w-1/3"></div>
-          <div className="h-10 bg-gray-100 rounded mt-4"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (product.status === ProductStatus.ERROR) {
-    return (
-      <div className="bg-red-50 rounded-lg border border-red-100 p-4 h-full flex flex-col justify-center items-center text-center">
-        <p className="text-sm text-red-600 mb-2">Erro ao carregar</p>
-        <a href={product.url} target="_blank" rel="noopener noreferrer" className="text-xs text-red-500 underline truncate w-full">
-          Link do produto
-        </a>
-      </div>
-    );
-  }
 
   return (
-    <div className="bg-white group rounded-lg border border-gray-200 overflow-hidden h-full flex flex-col hover:shadow-xl transition-all duration-300 relative">
-      
-      <div className="relative h-64 bg-white flex items-center justify-center border-b border-gray-50">
-         <div className="absolute top-3 left-3 z-20 pointer-events-none">
-           <span className="inline-block px-2 py-1 text-[10px] font-bold tracking-wider uppercase text-gray-500 bg-gray-100/90 backdrop-blur-sm rounded-sm shadow-sm">
-            {product.category}
-           </span>
+    <div className="bg-white border-b sm:border sm:rounded-xl border-gray-200 overflow-hidden flex flex-col h-full shadow-sm transition-shadow hover:shadow-md">
+      {/* Header do Post */}
+      <div className="flex items-center justify-between p-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-500 to-brand-700 p-0.5">
+            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+               <img src="/favicon.ico" className="w-6 h-6 object-contain" alt="" />
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-gray-900 leading-none">Guia da Promoção</span>
+            <span className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{product.category}</span>
+          </div>
         </div>
-
-        <button
-          onClick={handleShare}
-          className={`absolute top-3 right-3 z-20 p-2 rounded-full shadow-md transition-all duration-200 border border-gray-100 ${
-            copied 
-              ? 'bg-green-50 text-green-600 scale-110' 
-              : 'bg-white text-gray-400 hover:text-brand-600 hover:scale-110'
-          }`}
-          title="Compartilhar oferta"
-        >
-          {copied ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-          )}
+        <button className="text-gray-400">
+           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
         </button>
+      </div>
 
-        {embedUrl ? (
-           <iframe 
-             src={embedUrl} 
-             title={product.title}
-             className="w-full h-full object-cover"
-             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-             referrerPolicy="strict-origin-when-cross-origin"
-             allowFullScreen
-           ></iframe>
-        ) : (
-           <img 
-             src={imageUrl} 
-             alt={product.title} 
-             className="max-h-full max-w-full w-auto h-auto object-contain p-6 transform group-hover:scale-105 transition-transform duration-500"
-             loading="lazy"
-           />
+      {/* Imagem Principal */}
+      <div className="aspect-square bg-white flex items-center justify-center relative group">
+        <img 
+          src={product.imageUrl || `https://picsum.photos/seed/${product.id}/600/600`} 
+          alt={product.title} 
+          className="w-full h-full object-contain"
+        />
+        {product.estimatedPrice && (
+          <div className="absolute bottom-3 left-3 bg-brand-600/90 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-lg">
+            {product.estimatedPrice}
+          </div>
         )}
       </div>
-      
-      <div className="p-5 flex-1 flex flex-col">
-        <h3 
-          className="text-sm font-medium text-gray-900 mb-2 line-clamp-2 h-10 leading-5 group-hover:text-brand-600 transition-colors"
-          title={product.title}
-        >
-          {product.title}
-        </h3>
-        
-        <div className="mb-3">
-          {product.estimatedPrice ? (
-             <div className="flex items-baseline gap-1">
-               <span className="text-xs text-gray-500 font-normal">Por apenas</span>
-               <span className="text-xl font-bold text-gray-900">{product.estimatedPrice}</span>
-             </div>
-          ) : (
-            <div className="text-sm text-gray-400 italic">Confira o preço</div>
-          )}
-        </div>
 
-        <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-1 leading-relaxed">
-          {product.description}
-        </p>
+      {/* Barra de Ações */}
+      <div className="flex items-center justify-between px-3 pt-3 pb-2">
+        <div className="flex items-center gap-4">
+          <button onClick={handleLike} className={`${isLiked ? 'text-red-500 scale-110' : 'text-gray-700'} transition-all active:scale-125`}>
+            <svg className="w-6 h-6" fill={isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+          </button>
+          <button onClick={() => setShowComments(!showComments)} className="text-gray-700">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785 0 00.19.23c.957.045 1.9-.314 2.556-1.003.3-.315.68-.512 1.08-.512h.239c.39 0 .77.054 1.14.155z" />
+            </svg>
+          </button>
+          <button onClick={handleShare} className="text-gray-700">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg>
+          </button>
+        </div>
+        <button onClick={handleSave} className={`${isSaved ? 'text-brand-600' : 'text-gray-700'}`}>
+          <svg className="w-6 h-6" fill={isSaved ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Legenda e Comentários */}
+      <div className="px-3 pb-3 flex-1 flex flex-col">
+        <p className="text-xs font-bold text-gray-900 mb-1">{product.likes?.length || 0} curtidas</p>
+        <div className="text-xs text-gray-900 leading-snug">
+          <span className="font-bold mr-2">Guia da Promoção</span>
+          <span className="font-semibold">{product.title}</span>
+        </div>
+        <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{product.description}</p>
         
-        <div className="mt-auto pt-3 border-t border-gray-50">
-          <a 
-            href={product.url} 
-            target="_blank" 
+        {product.commentsCount ? (
+          <button onClick={() => setShowComments(true)} className="text-[11px] text-gray-400 mt-2 text-left">
+            Ver todos os {product.commentsCount} comentários
+          </button>
+        ) : null}
+
+        {/* Botão Ver Promoção */}
+        <div className="mt-auto pt-4">
+           <a 
+            href={product.url}
+            target="_blank"
             rel="noopener noreferrer"
-            onClick={handleProductClick}
-            className="w-full flex items-center justify-center px-4 py-2.5 bg-brand-600 text-white text-sm font-bold rounded hover:bg-brand-700 transition-colors duration-200 shadow-sm"
+            onClick={() => incrementClick(product.id)}
+            className="w-full bg-brand-600 hover:bg-brand-700 text-white text-[12px] font-bold py-2 rounded flex items-center justify-center gap-2 shadow-sm transition-colors"
           >
             Ver a Promoção
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
           </a>
         </div>
       </div>
+
+      {/* Gaveta de Comentários */}
+      {showComments && (
+        <div className="bg-gray-50 p-3 border-t border-gray-100 max-h-48 overflow-y-auto">
+          <div className="flex justify-between items-center mb-2">
+             <span className="text-[10px] font-bold text-gray-400 uppercase">Comentários</span>
+             <button onClick={() => setShowComments(false)} className="text-gray-400">✕</button>
+          </div>
+          <div className="space-y-3 mb-3">
+            {comments.map(c => (
+              <div key={c.id} className="flex gap-2 items-start">
+                <img src={c.userPhoto} className="w-5 h-5 rounded-full" alt="" />
+                <p className="text-[11px] text-gray-800"><span className="font-bold mr-1">{c.userName}</span>{c.text}</p>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleAddComment} className="flex gap-2">
+            <input 
+              type="text" 
+              placeholder="Adicione um comentário..." 
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="flex-1 bg-white border border-gray-200 rounded-full px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-brand-500"
+            />
+            <button disabled={!newComment.trim()} className="text-brand-600 font-bold text-[11px] uppercase disabled:opacity-30">Postar</button>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

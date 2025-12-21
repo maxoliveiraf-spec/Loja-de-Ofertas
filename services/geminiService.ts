@@ -1,6 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
+import { Product } from "../types";
 
 // Initialize Gemini Client
+// Using process.env.API_KEY as strictly required by the environment for stable connection
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Schema for structured product data
@@ -37,8 +40,9 @@ export const enrichProductData = async (url: string) => {
     Since you cannot browse the live web, infer the product details based on the URL structure or potential product ID. 
     If the URL is generic, make a best guess based on typical items sold on Amazon/Mercado Livre.`;
 
+    // Updated to gemini-3-flash-preview as per the task type (Basic Text)
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -46,6 +50,7 @@ export const enrichProductData = async (url: string) => {
       },
     });
 
+    // Access .text property directly (not a method) as per guidelines
     const text = response.text;
     if (!text) throw new Error("No response from Gemini");
 
