@@ -208,19 +208,20 @@ function App() {
               <TopProductsCarousel products={products} />
             </div>
 
+            {/* Categorias Mobile - Otimizadas para toque */}
             <div className="sm:hidden flex overflow-x-auto gap-4 p-4 scrollbar-hide border-b border-gray-100 bg-white sticky top-16 z-30">
                {['Todos', 'Eletrônicos', 'Moda', 'Casa', 'Beleza'].map(cat => (
                  <button 
                   key={cat} 
                   onClick={() => setFilterCategory(cat)}
-                  className={`flex-shrink-0 flex flex-col items-center gap-1 group`}
+                  className={`flex-shrink-0 flex flex-col items-center gap-2 active:scale-90 transition-transform duration-75 p-1 rounded-xl`}
                  >
                    <div className={`w-14 h-14 rounded-full p-0.5 ${filterCategory === cat ? 'bg-gradient-to-tr from-yellow-400 to-fuchsia-600' : 'bg-gray-200'}`}>
                       <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-gray-500 overflow-hidden text-center p-1">
                         {cat}
                       </div>
                    </div>
-                   <span className={`text-[10px] ${filterCategory === cat ? 'font-bold text-gray-900' : 'text-gray-500'}`}>{cat}</span>
+                   <span className={`text-[11px] ${filterCategory === cat ? 'font-black text-gray-900' : 'font-medium text-gray-400'}`}>{cat}</span>
                  </button>
                ))}
             </div>
@@ -229,7 +230,7 @@ function App() {
               <div className="mb-12 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
                 <div className="flex justify-between items-center mb-6">
                    <h2 className="text-xl font-bold text-gray-900">Estatísticas do Gestor</h2>
-                   <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors">Fechar Painel</button>
+                   <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors p-2 active:scale-90">Fechar Painel</button>
                 </div>
                 <AnalyticsDashboard products={products} />
               </div>
@@ -249,7 +250,7 @@ function App() {
                ))}
             </div>
             {filteredProducts.length === 0 && (
-              <div className="text-center py-20 px-4">
+              <div className="text-center py-20 px-4 animate-fadeIn">
                 <p className="text-gray-400 italic">Nenhuma oferta encontrada para sua busca...</p>
               </div>
             )}
@@ -268,7 +269,7 @@ function App() {
                    <svg className="w-5 h-5 text-brand-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
                    <h2 className="font-bold text-gray-900">{editingProduct ? 'Editar Oferta' : 'Enviar Nova Oferta ML'}</h2>
                  </div>
-                 <button onClick={() => setIsPostModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600">✕</button>
+                 <button onClick={() => setIsPostModalOpen(false)} className="p-3 text-gray-400 hover:text-gray-600 active:scale-90 transition-transform">✕</button>
                </div>
                
                <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide">
@@ -280,7 +281,7 @@ function App() {
                       placeholder="https://mercadolivre.com/sec/..." 
                       value={formData.url} 
                       onChange={(e) => handleUrlChange(e.target.value)} 
-                      className={`w-full border p-3 rounded-lg text-sm outline-none focus:ring-2 ${isValidMercadoLivreUrl(formData.url) || !formData.url ? 'focus:ring-brand-500' : 'focus:ring-red-500 border-red-200'}`} 
+                      className={`w-full border p-4 rounded-xl text-sm outline-none focus:ring-2 ${isValidMercadoLivreUrl(formData.url) || !formData.url ? 'focus:ring-brand-500' : 'focus:ring-red-500 border-red-200'}`} 
                     />
                     {!isValidMercadoLivreUrl(formData.url) && formData.url && (
                       <p className="text-[10px] text-red-500 mt-1 font-bold italic">Link inválido! Use apenas links do Mercado Livre.</p>
@@ -291,11 +292,11 @@ function App() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Título da Oferta</label>
-                      <input required placeholder="Ex: iPhone 15 Pro Max" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                      <input required placeholder="Ex: iPhone 15 Pro Max" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border p-4 rounded-xl text-sm" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Preço Atual</label>
-                      <input required placeholder="Ex: R$ 7.499,00" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                      <input required placeholder="Ex: R$ 7.499,00" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border p-4 rounded-xl text-sm" />
                     </div>
                   </div>
 
@@ -305,36 +306,30 @@ function App() {
                       placeholder="Fale um pouco sobre o produto..." 
                       value={formData.description} 
                       onChange={(e)=>setFormData({...formData, description: e.target.value})} 
-                      className="w-full border p-3 rounded-lg text-sm min-h-[100px] resize-none focus:ring-2 focus:ring-brand-500 outline-none" 
+                      className="w-full border p-4 rounded-xl text-sm min-h-[120px] resize-none focus:ring-2 focus:ring-brand-500 outline-none" 
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Categoria</label>
-                      <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border p-3 rounded-lg text-sm bg-white">
+                      <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border p-4 rounded-xl text-sm bg-white">
                          <option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">URL da Imagem</label>
-                      <input required type="url" placeholder="Copie o link da imagem" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-3 rounded-lg text-sm" />
+                      <input required type="url" placeholder="Copie o link da imagem" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-4 rounded-xl text-sm" />
                     </div>
                   </div>
-
-                  {formData.imageUrl && formData.imageUrl.startsWith('http') && (
-                    <div className="h-32 w-full bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden border border-dashed">
-                       <img src={formData.imageUrl} className="h-full object-contain" alt="Preview" onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x400?text=Erro+na+Imagem')} />
-                    </div>
-                  )}
 
                   <button 
                     disabled={!isValidMercadoLivreUrl(formData.url) || isEnriching}
                     type="submit" 
-                    className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                    className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold py-4 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                   >
                     {editingProduct ? 'Salvar Alterações' : 'Publicar Oferta Agora'}
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
                   </button>
                </form>
             </div>
@@ -344,14 +339,14 @@ function App() {
         {/* Modal de Login */}
         {isAuthModalOpen && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl">
+            <div className="bg-white rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl animate-slideUp">
               <div className="w-16 h-16 bg-brand-50 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
               </div>
               <h3 className="text-xl font-extrabold mb-2 text-gray-900">Entre para continuar</h3>
               <p className="text-xs text-gray-500 mb-8 leading-relaxed">Você precisa estar logado para postar ofertas e interagir com a comunidade!</p>
               <div ref={authModalGoogleRef} className="flex justify-center mb-6"></div>
-              <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">Fechar</button>
+              <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-bold uppercase tracking-widest active:scale-90 p-2">Fechar</button>
             </div>
           </div>
         )}
