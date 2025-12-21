@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
     <title>Guia da Promoção - Loja de Ofertas</title>
     <meta name="description" content="As melhores ofertas da internet em um só lugar. Eletrônicos, moda, casa e muito mais com preços imperdíveis.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,8 +55,17 @@
       * {
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
+        /* Evita seleção de texto acidental ao clicar rápido */
+        -webkit-user-select: none;
+        user-select: none;
       }
       
+      /* Permitir seleção apenas em inputs e textareas */
+      input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
       .scrollbar-hide::-webkit-scrollbar {
           display: none;
       }
@@ -70,16 +79,18 @@
 
       /* Garantir que botões e links tenham área de toque mínima no mobile */
       button, a, .cursor-pointer {
-        min-height: 44px;
-        min-width: 44px;
+        min-height: 48px; /* Aumentado para 48px conforme diretrizes de acessibilidade e toque */
+        min-width: 48px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        cursor: pointer;
+        /* Força o feedback visual a ser instantâneo ignorando transições no estado ativo */
       }
       
-      /* Reduzir o tempo de feedback visual */
-      .active\:scale-95:active {
-        transform: scale(0.95);
+      button:active, a:active {
+        transition: none !important;
+        transform: scale(0.96) !important;
       }
     </style>
   <script type="importmap">

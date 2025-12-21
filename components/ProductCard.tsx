@@ -15,6 +15,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
   const [isSaved, setIsSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const optionsRef = useRef<HTMLDivElement>(null);
@@ -44,23 +45,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showOptions]);
 
-  const handleLike = async (e: React.MouseEvent) => {
+  const handleLike = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     if (!currentUser) return onAuthRequired();
     const newLikedStatus = !isLiked;
     setIsLiked(newLikedStatus);
-    await socialService.toggleLike(product.id, currentUser.uid, isLiked);
+    socialService.toggleLike(product.id, currentUser.uid, isLiked).catch(console.error);
   };
 
-  const handleSave = async (e: React.MouseEvent) => {
+  const handleSave = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     if (!currentUser) return onAuthRequired();
     const newSavedStatus = !isSaved;
     setIsSaved(newSavedStatus);
-    await socialService.toggleSave(currentUser.uid, product.id, isSaved);
+    socialService.toggleSave(currentUser.uid, product.id, isSaved).catch(console.error);
   };
 
-  const handleShare = async (e: React.MouseEvent) => {
+  const handleShare = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     const siteLink = "https://loja-de-ofertas.vercel.app/";
     const shareMessage = `🔥 Olha essa oferta: ${product.title}\n${product.url}\n\n\nMais informações\n${siteLink}`;
@@ -71,15 +75,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
     };
 
     if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.debug("Share cancelled or failed", err);
-      }
+      navigator.share(shareData).catch((err) => console.debug("Share failed", err));
     } else {
-      await navigator.clipboard.writeText(shareMessage);
+      navigator.clipboard.writeText(shareMessage);
       alert("Copiado: Link da oferta e informações da loja!");
     }
+  };
+
+  const handlePromoClick = () => {
+    incrementClick(product.id).catch(console.debug);
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -110,6 +114,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product.authorName || 'User')}&background=random&color=fff`;
+    setImageLoaded(true);
   };
 
   const canEdit = currentUser && product.authorId === currentUser.uid;
@@ -143,17 +148,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         <div className="relative" ref={optionsRef}>
           <button 
             onClick={() => setShowOptions(!showOptions)}
-            className="text-gray-400 p-2 hover:bg-gray-100 rounded-full active:scale-90 transition-all"
+            className="text-gray-400 p-2 hover:bg-gray-100 rounded-full active:scale-90 transition-all touch-manipulation"
           >
              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
           </button>
           
           {showOptions && (canEdit || canDelete) && (
-            <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-100 rounded-xl shadow-xl z-50 overflow-hidden animate-fadeIn">
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 overflow-hidden animate-fadeIn">
               {canEdit && (
                 <button 
                   onClick={() => { onEdit?.(product); setShowOptions(false); }}
-                  className="w-full text-left px-4 py-4 text-sm font-bold text-gray-700 hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3 border-b border-gray-50"
+                  className="w-full text-left px-4 py-5 text-sm font-bold text-gray-700 hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3 border-b border-gray-50 touch-manipulation"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                   Editar Oferta
@@ -162,7 +167,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
               {canDelete && (
                 <button 
                   onClick={handleDelete}
-                  className="w-full text-left px-4 py-4 text-sm font-bold text-red-600 hover:bg-red-50 active:bg-red-100 flex items-center gap-3"
+                  className="w-full text-left px-4 py-5 text-sm font-bold text-red-600 hover:bg-red-50 active:bg-red-100 flex items-center gap-3 touch-manipulation"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   Excluir Oferta
@@ -173,13 +178,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         </div>
       </div>
 
-      {/* Imagem Principal */}
-      <div className="aspect-square bg-gray-50 flex items-center justify-center relative group overflow-hidden border-y border-gray-50 sm:border-none">
+      {/* Imagem Principal - Optimized Lazy Loading */}
+      <div className="aspect-square bg-gray-100 flex items-center justify-center relative group overflow-hidden border-y border-gray-50 sm:border-none">
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-pulse"></div>
+        )}
         <img 
           src={product.imageUrl || `https://picsum.photos/seed/${product.id}/600/600`} 
           alt={product.title} 
-          className="w-full h-full object-contain"
+          className={`w-full h-full object-contain transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
+          onLoad={() => setImageLoaded(true)}
+          onError={handleImageError}
         />
         {product.estimatedPrice && (
           <div className="absolute bottom-3 left-3 bg-brand-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
@@ -188,26 +198,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         )}
       </div>
 
-      {/* Barra de Ações - Com feedbacks ativos */}
+      {/* Barra de Ações */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <div className="flex items-center gap-4">
-          <button onClick={handleLike} className={`${isLiked ? 'text-red-500 scale-110' : 'text-gray-700'} p-2 rounded-full active:scale-125 transition-all`}>
+        <div className="flex items-center gap-2">
+          <button onClick={handleLike} className={`${isLiked ? 'text-red-500 scale-110' : 'text-gray-700'} p-3 rounded-full active:scale-125 transition-all touch-manipulation`}>
             <svg className="w-7 h-7" fill={isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
             </svg>
           </button>
-          <button onClick={() => setShowComments(!showComments)} className="text-gray-700 p-2 rounded-full active:scale-90 transition-all">
+          <button onClick={() => setShowComments(!showComments)} className="text-gray-700 p-3 rounded-full active:scale-90 transition-all touch-manipulation">
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785 0 00.19.23c.957.045 1.9-.314 2.556-1.003.3-.315.68-.512 1.08-.512h.239c.39 0 .77.054 1.14.155z" />
             </svg>
           </button>
-          <button onClick={handleShare} className="text-gray-700 p-2 rounded-full active:scale-90 transition-all">
+          <button onClick={handleShare} className="text-gray-700 p-3 rounded-full active:scale-90 transition-all touch-manipulation">
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           </button>
         </div>
-        <button onClick={handleSave} className={`${isSaved ? 'text-brand-600' : 'text-gray-700'} p-2 rounded-full active:scale-90 transition-all`}>
+        <button onClick={handleSave} className={`${isSaved ? 'text-brand-600' : 'text-gray-700'} p-3 rounded-full active:scale-90 transition-all touch-manipulation`}>
           <svg className="w-7 h-7" fill={isSaved ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
           </svg>
@@ -224,39 +234,39 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         <p className="text-[11px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">{product.description}</p>
         
         {product.commentsCount ? (
-          <button onClick={() => setShowComments(true)} className="text-[11px] text-gray-400 mt-2 text-left active:text-brand-600 h-8 flex items-center">
+          <button onClick={() => setShowComments(true)} className="text-[11px] text-gray-400 mt-2 text-left active:text-brand-600 h-10 flex items-center touch-manipulation">
             Ver todos os {product.commentsCount} comentários
           </button>
         ) : null}
 
-        {/* Botão Ver Promoção - Maior e mais tátil */}
+        {/* Botão Ver Promoção */}
         <div className="pt-3">
            <a 
             href={product.url}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => incrementClick(product.id)}
-            className="w-full bg-brand-600 hover:bg-brand-700 text-white text-[13px] font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all"
+            onClick={handlePromoClick}
+            className="w-full bg-brand-600 text-white text-[14px] font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all touch-manipulation select-none"
           >
             Ver a Promoção
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
           </a>
         </div>
       </div>
 
       {/* Gaveta de Comentários */}
       {showComments && (
-        <div className="bg-gray-50 p-4 border-t border-gray-100 max-h-60 overflow-y-auto animate-fadeIn">
-          <div className="flex justify-between items-center mb-3">
+        <div className="bg-gray-50 p-4 border-t border-gray-100 max-h-64 overflow-y-auto animate-fadeIn">
+          <div className="flex justify-between items-center mb-4">
              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Comentários</span>
-             <button onClick={() => setShowComments(false)} className="text-gray-400 p-2 hover:bg-gray-200 rounded-full active:scale-90 transition-all">✕</button>
+             <button onClick={() => setShowComments(false)} className="text-gray-400 p-3 hover:bg-gray-200 rounded-full active:scale-90 transition-all touch-manipulation">✕</button>
           </div>
           <div className="space-y-4 mb-4">
             {comments.map(c => (
               <div key={c.id} className="flex gap-3 items-start">
                 <img 
                   src={c.userPhoto} 
-                  className="w-6 h-6 rounded-full object-cover" 
+                  className="w-8 h-8 rounded-full object-cover" 
                   alt={c.userName} 
                   referrerPolicy="no-referrer"
                   onError={(e) => {
@@ -273,9 +283,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
               placeholder="Adicione um comentário..." 
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              className="flex-1 bg-white border border-gray-200 rounded-full px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-brand-500"
+              className="flex-1 bg-white border border-gray-200 rounded-full px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-brand-500"
             />
-            <button disabled={!newComment.trim()} className="text-brand-600 font-extrabold text-[12px] uppercase disabled:opacity-30 p-2 active:scale-90 transition-transform">Postar</button>
+            <button disabled={!newComment.trim()} className="text-brand-600 font-extrabold text-[12px] uppercase disabled:opacity-30 p-3 active:scale-90 transition-transform touch-manipulation">Postar</button>
           </form>
         </div>
       )}

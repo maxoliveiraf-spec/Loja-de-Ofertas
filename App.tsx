@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
@@ -13,9 +13,12 @@ import { Footer } from './components/Footer';
 
 const GOOGLE_CLIENT_ID = "14302060436-3nsfssbbrs3fgrphslk1g9nncura8nnb.apps.googleusercontent.com"; 
 const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
+const INITIAL_ITEMS = 12;
+const ITEMS_PER_PAGE = 8;
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_ITEMS);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -28,6 +31,7 @@ function App() {
   
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const authModalGoogleRef = useRef<HTMLDivElement>(null);
+  const observerTarget = useRef<HTMLDivElement>(null);
   const [dbError, setDbError] = useState<string | null>(null);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -62,6 +66,24 @@ function App() {
     );
     return () => unsubscribe();
   }, [products.length]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < products.length) {
+          setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [products.length, visibleCount]);
 
   useEffect(() => {
     if ((isPostModalOpen || isAnalyticsOpen || isAuthModalOpen) && !user && window.google) {
@@ -190,6 +212,9 @@ function App() {
     return matchesCategory && (p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
   });
 
+  // Apply Client-side Pagination
+  const pagedProducts = filteredProducts.slice(0, visibleCount);
+
   return (
     <HelmetProvider>
       <div className="min-h-screen bg-white sm:bg-gray-50 flex flex-col font-sans">
@@ -200,7 +225,7 @@ function App() {
           onOpenAnalytics={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito apenas ao gestor do site.")}
           totalProducts={products.length}
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={(q) => { setSearchQuery(q); setVisibleCount(INITIAL_ITEMS); }}
         />
 
         <main className="flex-1 w-full max-w-7xl mx-auto py-0 sm:py-8 sm:px-4">
@@ -208,12 +233,12 @@ function App() {
               <TopProductsCarousel products={products} />
             </div>
 
-            {/* Categorias Mobile - Otimizadas para toque */}
+            {/* Categorias Mobile */}
             <div className="sm:hidden flex overflow-x-auto gap-4 p-4 scrollbar-hide border-b border-gray-100 bg-white sticky top-16 z-30">
                {['Todos', 'Eletrônicos', 'Moda', 'Casa', 'Beleza'].map(cat => (
                  <button 
                   key={cat} 
-                  onClick={() => setFilterCategory(cat)}
+                  onClick={() => { setFilterCategory(cat); setVisibleCount(INITIAL_ITEMS); }}
                   className={`flex-shrink-0 flex flex-col items-center gap-2 active:scale-90 transition-transform duration-75 p-1 rounded-xl`}
                  >
                    <div className={`w-14 h-14 rounded-full p-0.5 ${filterCategory === cat ? 'bg-gradient-to-tr from-yellow-400 to-fuchsia-600' : 'bg-gray-200'}`}>
@@ -237,7 +262,7 @@ function App() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-6 lg:gap-8 max-w-lg sm:max-w-none mx-auto items-start align-top">
-               {filteredProducts.map(p => (
+               {pagedProducts.map(p => (
                  <div key={p.id} className="self-start">
                    <ProductCard 
                      product={p} 
@@ -249,6 +274,15 @@ function App() {
                  </div>
                ))}
             </div>
+
+            {/* Infinite Scroll Sentinel */}
+            {filteredProducts.length > visibleCount && (
+              <div ref={observerTarget} className="w-full py-12 flex flex-col items-center justify-center gap-3">
+                 <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Carregando mais ofertas...</p>
+              </div>
+            )}
+
             {filteredProducts.length === 0 && (
               <div className="text-center py-20 px-4 animate-fadeIn">
                 <p className="text-gray-400 italic">Nenhuma oferta encontrada para sua busca...</p>
