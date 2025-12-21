@@ -55,27 +55,68 @@
          OTIMIZAÇÕES PARA TOQUE MOBILE
          ======================================== */
       
-      /* Reset de highlight e comportamento de toque */
-      * {
+      /* Reset de highlight - NÃO aplicar em inputs/textareas */
+      *:not(input):not(textarea) {
         -webkit-tap-highlight-color: transparent;
-        -webkit-touch-callout: none;
       }
       
-      /* Permitir seleção apenas em inputs e textareas */
-      input, textarea {
-        -webkit-user-select: text;
-        user-select: text;
+      /* ========================================
+         INPUTS E TEXTAREAS - PRIORIDADE MÁXIMA
+         ======================================== */
+      
+      /* Garantir que inputs e textareas funcionem corretamente */
+      input, 
+      textarea,
+      input[type="text"],
+      input[type="url"],
+      input[type="email"],
+      input[type="password"],
+      input[type="search"],
+      input[type="tel"],
+      input[type="number"] {
+        -webkit-user-select: text !important;
+        user-select: text !important;
+        -webkit-touch-callout: default !important;
+        touch-action: auto !important;
+        cursor: text !important;
+        /* Garantir que o teclado virtual apareça */
+        -webkit-appearance: none;
+        appearance: none;
+        /* Permitir foco e interação */
+        pointer-events: auto !important;
+        /* Tamanho mínimo para facilitar toque */
+        min-height: 44px;
+        /* Prevenir zoom no iOS ao focar */
+        font-size: 16px;
       }
       
-      /* Desabilitar seleção em elementos não-texto */
-      button, a, [role="button"], .cursor-pointer {
-        -webkit-user-select: none;
-        user-select: none;
+      /* Garantir que o placeholder seja visível */
+      input::placeholder,
+      textarea::placeholder {
+        opacity: 0.6;
+        color: #9ca3af;
       }
-
+      
+      /* Estado de foco visível */
+      input:focus,
+      textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.3);
+      }
+      
       /* ========================================
          BOTÕES E ELEMENTOS INTERATIVOS
          ======================================== */
+      
+      /* Desabilitar seleção apenas em elementos não-texto */
+      button, 
+      a, 
+      [role="button"], 
+      .cursor-pointer {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
       
       /* Área de toque mínima para acessibilidade (44x44px mínimo) */
       button, 
@@ -175,6 +216,26 @@
       .smooth-scroll {
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
+      }
+      
+      /* ========================================
+         FORMULÁRIOS - CORREÇÕES ESPECÍFICAS
+         ======================================== */
+      
+      /* Garantir que formulários não bloqueiem interação */
+      form {
+        touch-action: auto;
+      }
+      
+      /* Container de comentários - permitir scroll e interação */
+      .comment-input-container {
+        position: relative;
+        z-index: 10;
+      }
+      
+      /* Botão de submit dentro de formulários */
+      form button[type="submit"] {
+        touch-action: manipulation;
       }
     </style>
   <script type="importmap">

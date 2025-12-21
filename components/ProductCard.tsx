@@ -304,7 +304,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
 
       {/* Gaveta de Comentários */}
       {showComments && (
-        <div className="bg-gray-50 p-4 border-t border-gray-100 max-h-64 overflow-y-auto animate-fadeIn smooth-scroll">
+        <div className="bg-gray-50 p-4 border-t border-gray-100 max-h-80 overflow-y-auto animate-fadeIn smooth-scroll">
           <div className="flex justify-between items-center mb-4">
              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Comentários</span>
              <button 
@@ -317,11 +317,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
              </button>
           </div>
           <div className="space-y-4 mb-4">
+            {comments.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-4">Seja o primeiro a comentar!</p>
+            )}
             {comments.map(c => (
               <div key={c.id} className="flex gap-3 items-start">
                 <img 
                   src={c.userPhoto} 
-                  className="w-8 h-8 rounded-full object-cover" 
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0" 
                   alt={c.userName} 
                   referrerPolicy="no-referrer"
                   onError={(e) => {
@@ -332,20 +335,43 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
               </div>
             ))}
           </div>
-          <form onSubmit={handleAddComment} className="flex gap-2">
+          
+          {/* Formulário de Comentário - Otimizado para Mobile */}
+          <form 
+            onSubmit={handleAddComment} 
+            className="flex gap-2 items-center sticky bottom-0 bg-gray-50 pt-2"
+          >
             <input 
               type="text" 
+              inputMode="text"
+              autoComplete="off"
+              autoCorrect="on"
+              spellCheck="true"
+              enterKeyHint="send"
               placeholder="Adicione um comentário..." 
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              className="flex-1 bg-white border border-gray-200 rounded-full px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-brand-500"
+              onFocus={(e) => {
+                // Scroll para o input quando focado no mobile
+                setTimeout(() => {
+                  e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+              }}
+              className="flex-1 bg-white border border-gray-200 rounded-full px-4 py-3 text-base outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 min-h-[48px]"
+              style={{ 
+                fontSize: '16px', // Previne zoom no iOS
+                WebkitUserSelect: 'text',
+                userSelect: 'text'
+              }}
             />
             <button 
               type="submit"
               disabled={!newComment.trim()} 
-              className="btn-instant text-brand-600 font-extrabold text-[12px] uppercase disabled:opacity-30 p-3 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="btn-instant bg-brand-600 text-white font-bold text-xs uppercase disabled:opacity-30 disabled:bg-gray-300 px-4 py-3 rounded-full min-h-[48px] flex items-center justify-center shadow-sm"
             >
-              <span className="pointer-events-none">Postar</span>
+              <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
             </button>
           </form>
         </div>
