@@ -29,8 +29,8 @@
             },
             animation: {
               marquee: 'marquee 25s linear infinite',
-              fadeIn: 'fadeIn 0.15s ease-out',
-              slideUp: 'slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              fadeIn: 'fadeIn 0.1s ease-out',
+              slideUp: 'slideUp 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
             },
             keyframes: {
               marquee: {
@@ -52,123 +52,108 @@
     </script>
     <style>
       /* ========================================
-         OTIMIZAÇÕES PARA TOQUE MOBILE
+         ELIMINAR DELAY DE 300MS - SOLUÇÃO AGRESSIVA
          ======================================== */
       
-      /* Reset de highlight - NÃO aplicar em inputs/textareas */
-      *:not(input):not(textarea) {
+      /* Desabilitar TODOS os comportamentos que causam delay */
+      html {
+        touch-action: manipulation; /* Remove delay de double-tap zoom */
+        -ms-touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Aplicar touch-action em todo o documento */
+      *, *::before, *::after {
+        touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
       }
       
       /* ========================================
-         INPUTS E TEXTAREAS - PRIORIDADE MÁXIMA
+         INPUTS E TEXTAREAS - INTERAÇÃO NORMAL
          ======================================== */
       
-      /* Garantir que inputs e textareas funcionem corretamente */
       input, 
       textarea,
-      input[type="text"],
-      input[type="url"],
-      input[type="email"],
-      input[type="password"],
-      input[type="search"],
-      input[type="tel"],
-      input[type="number"] {
+      select,
+      [contenteditable="true"] {
+        touch-action: auto !important;
         -webkit-user-select: text !important;
         user-select: text !important;
         -webkit-touch-callout: default !important;
-        touch-action: auto !important;
-        cursor: text !important;
-        /* Garantir que o teclado virtual apareça */
-        -webkit-appearance: none;
-        appearance: none;
-        /* Permitir foco e interação */
-        pointer-events: auto !important;
-        /* Tamanho mínimo para facilitar toque */
-        min-height: 44px;
-        /* Prevenir zoom no iOS ao focar */
-        font-size: 16px;
+        cursor: text;
+        font-size: 16px !important; /* Previne zoom no iOS */
       }
       
-      /* Garantir que o placeholder seja visível */
       input::placeholder,
       textarea::placeholder {
         opacity: 0.6;
         color: #9ca3af;
       }
       
-      /* Estado de foco visível */
-      input:focus,
-      textarea:focus {
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.3);
-      }
-      
       /* ========================================
-         BOTÕES E ELEMENTOS INTERATIVOS
+         BOTÕES - RESPOSTA INSTANTÂNEA
          ======================================== */
       
-      /* Desabilitar seleção apenas em elementos não-texto */
       button, 
       a, 
-      [role="button"], 
-      .cursor-pointer {
+      [role="button"],
+      .clickable {
+        /* Desabilitar seleção */
         -webkit-user-select: none;
         user-select: none;
         -webkit-touch-callout: none;
+        
+        /* Cursor e aparência */
+        cursor: pointer;
+        
+        /* CRÍTICO: Sem transições que causem delay visual */
+        transition: none !important;
       }
       
-      /* Área de toque mínima para acessibilidade (44x44px mínimo) */
-      button, 
-      a, 
-      [role="button"],
-      .touch-target {
-        position: relative;
-        touch-action: manipulation;
-      }
-      
-      /* Pseudo-elemento para expandir área de toque sem afetar layout */
-      button::before,
-      [role="button"]::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        min-width: 44px;
-        min-height: 44px;
-        width: 100%;
-        height: 100%;
-      }
-      
-      /* Feedback visual INSTANTÂNEO no toque */
+      /* Estado ativo - feedback INSTANTÂNEO */
       button:active,
       a:active,
       [role="button"]:active,
-      .cursor-pointer:active {
-        transform: scale(0.95) !important;
-        transition: transform 0ms !important;
-        opacity: 0.85;
+      .clickable:active {
+        transform: scale(0.92) !important;
+        opacity: 0.7 !important;
+        transition: none !important;
       }
       
-      /* Restaurar estado normal com transição suave */
-      button,
-      a,
-      [role="button"],
-      .cursor-pointer {
-        transition: transform 100ms ease-out, opacity 100ms ease-out;
-        will-change: transform, opacity;
+      /* Classe para botões que precisam de animação suave (opcional) */
+      .animate-btn {
+        transition: transform 50ms ease-out, opacity 50ms ease-out !important;
       }
       
-      /* Classe específica para botões com ícones que precisam de resposta rápida */
-      .btn-instant {
+      /* ========================================
+         FAST BUTTON - COMPONENTE OTIMIZADO
+         ======================================== */
+      
+      .fast-btn {
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: pointer;
+        transition: none !important;
       }
       
-      .btn-instant:active {
+      .fast-btn:active,
+      .fast-btn.pressed {
         transform: scale(0.9) !important;
-        transition: none !important;
+        opacity: 0.75 !important;
+      }
+      
+      /* Ícones dentro de botões não devem capturar eventos */
+      button svg,
+      button img,
+      button span,
+      a svg,
+      a img,
+      .fast-btn svg,
+      .fast-btn img,
+      .fast-btn span {
+        pointer-events: none !important;
       }
 
       /* ========================================
@@ -183,6 +168,12 @@
         scrollbar-width: none;
       }
       
+      /* Scroll suave em containers */
+      .smooth-scroll {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
+      
       /* ========================================
          ANIMAÇÕES
          ======================================== */
@@ -191,11 +182,9 @@
         animation-play-state: paused;
       }
       
-      /* Reduzir animações para usuários que preferem movimento reduzido */
+      /* Reduzir animações para quem prefere */
       @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
+        *, *::before, *::after {
           animation-duration: 0.01ms !important;
           animation-iteration-count: 1 !important;
           transition-duration: 0.01ms !important;
@@ -203,39 +192,19 @@
       }
       
       /* ========================================
-         PERFORMANCE MOBILE
+         PERFORMANCE
          ======================================== */
       
-      /* Promover elementos interativos para GPU */
-      .gpu-accelerated {
+      /* Promover elementos para GPU */
+      .gpu {
         transform: translateZ(0);
+        will-change: transform;
         backface-visibility: hidden;
       }
       
-      /* Otimizar scroll em containers */
-      .smooth-scroll {
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-      }
-      
-      /* ========================================
-         FORMULÁRIOS - CORREÇÕES ESPECÍFICAS
-         ======================================== */
-      
-      /* Garantir que formulários não bloqueiem interação */
-      form {
-        touch-action: auto;
-      }
-      
-      /* Container de comentários - permitir scroll e interação */
-      .comment-input-container {
-        position: relative;
-        z-index: 10;
-      }
-      
-      /* Botão de submit dentro de formulários */
-      form button[type="submit"] {
-        touch-action: manipulation;
+      /* Otimizar cards para scroll */
+      .card {
+        contain: layout style paint;
       }
     </style>
   <script type="importmap">

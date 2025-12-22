@@ -16,6 +16,55 @@ const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
 const INITIAL_ITEMS = 12;
 const ITEMS_PER_PAGE = 8;
 
+// Componente de botão otimizado para touch - dispara no touchstart
+const TouchButton: React.FC<{
+  onClick: () => void;
+  className?: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+  type?: 'button' | 'submit';
+}> = ({ onClick, className = '', disabled = false, children, type = 'button' }) => {
+  const [pressed, setPressed] = useState(false);
+  const firedRef = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (disabled) return;
+    e.stopPropagation();
+    setPressed(true);
+    
+    if (!firedRef.current) {
+      firedRef.current = true;
+      onClick();
+      setTimeout(() => { firedRef.current = false; }, 100);
+    }
+  }, [onClick, disabled]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    setPressed(false);
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (disabled) return;
+    e.stopPropagation();
+    if (!firedRef.current) onClick();
+  }, [onClick, disabled]);
+
+  return (
+    <button
+      type={type}
+      className={`fast-btn ${className} ${pressed ? 'pressed' : ''}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={() => setPressed(false)}
+      onClick={handleClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+};
+
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_ITEMS);
@@ -67,7 +116,6 @@ function App() {
     return () => unsubscribe();
   }, [products.length]);
 
-  // Infinite Scroll Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -172,7 +220,7 @@ function App() {
           ...formData,
           category: formData.category
         });
-        alert("🎉 Oferta atualizada com sucesso!");
+        alert("🎉 Oferta atualizada!");
       } else {
         await productService.add({ 
           ...formData, 
@@ -182,14 +230,14 @@ function App() {
           authorPhoto: user.photoURL,
           authorId: user.uid
         });
-        alert("🎉 Oferta publicada com sucesso na comunidade!");
+        alert("🎉 Oferta publicada!");
       }
 
       setFormData({ url: '', title: '', estimatedPrice: '', category: 'Eletrônicos', imageUrl: '', description: '' });
       setEditingProduct(null);
       setIsPostModalOpen(false);
     } catch (err) {
-      alert("Erro ao salvar. Verifique sua conexão.");
+      alert("Erro ao salvar.");
     }
   };
 
@@ -206,7 +254,6 @@ function App() {
     setIsPostModalOpen(true);
   }, []);
 
-  // Handlers otimizados com useCallback para evitar re-renders
   const handleCategoryChange = useCallback((cat: string) => {
     setFilterCategory(cat);
     setVisibleCount(INITIAL_ITEMS);
@@ -219,7 +266,7 @@ function App() {
   }, [user]);
 
   const handleOpenAnalytics = useCallback(() => {
-    isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito apenas ao gestor do site.");
+    isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito.");
   }, [isUserAdmin]);
 
   const handleSearchChange = useCallback((q: string) => {
@@ -233,7 +280,6 @@ function App() {
     return matchesCategory && (p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
   });
 
-  // Apply Client-side Pagination
   const pagedProducts = filteredProducts.slice(0, visibleCount);
 
   return (
@@ -254,42 +300,40 @@ function App() {
               <TopProductsCarousel products={products} />
             </div>
 
-            {/* Categorias Mobile - Botões otimizados para toque */}
+            {/* Categorias Mobile */}
             <div className="sm:hidden flex overflow-x-auto gap-3 p-4 scrollbar-hide smooth-scroll border-b border-gray-100 bg-white sticky top-16 z-30">
                {['Todos', 'Eletrônicos', 'Moda', 'Casa', 'Beleza'].map(cat => (
-                 <button 
-                  type="button"
+                 <TouchButton 
                   key={cat} 
                   onClick={() => handleCategoryChange(cat)}
-                  className="btn-instant flex-shrink-0 flex flex-col items-center gap-2 p-2 rounded-xl min-w-[64px]"
+                  className="flex-shrink-0 flex flex-col items-center gap-2 p-2 rounded-xl min-w-[64px]"
                  >
-                   <div className={`w-14 h-14 rounded-full p-0.5 pointer-events-none ${filterCategory === cat ? 'bg-gradient-to-tr from-yellow-400 to-fuchsia-600' : 'bg-gray-200'}`}>
+                   <div className={`w-14 h-14 rounded-full p-0.5 ${filterCategory === cat ? 'bg-gradient-to-tr from-yellow-400 to-fuchsia-600' : 'bg-gray-200'}`}>
                       <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-gray-500 overflow-hidden text-center p-1">
                         {cat}
                       </div>
                    </div>
-                   <span className={`text-[11px] pointer-events-none ${filterCategory === cat ? 'font-black text-gray-900' : 'font-medium text-gray-400'}`}>{cat}</span>
-                 </button>
+                   <span className={`text-[11px] ${filterCategory === cat ? 'font-black text-gray-900' : 'font-medium text-gray-400'}`}>{cat}</span>
+                 </TouchButton>
                ))}
             </div>
 
             {isAnalyticsOpen && isUserAdmin && (
               <div className="mb-12 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
                 <div className="flex justify-between items-center mb-6">
-                   <h2 className="text-xl font-bold text-gray-900">Estatísticas do Gestor</h2>
-                   <button 
-                     type="button"
+                   <h2 className="text-xl font-bold text-gray-900">Estatísticas</h2>
+                   <TouchButton 
                      onClick={() => setIsAnalyticsOpen(false)} 
-                     className="btn-instant text-gray-400 hover:text-red-500 px-4 py-3 rounded-lg min-h-[44px]"
+                     className="text-gray-400 hover:text-red-500 px-4 py-3 rounded-lg min-h-[44px]"
                    >
-                     <span className="pointer-events-none">Fechar Painel</span>
-                   </button>
+                     <span>Fechar</span>
+                   </TouchButton>
                 </div>
                 <AnalyticsDashboard products={products} />
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-6 lg:gap-8 max-w-lg sm:max-w-none mx-auto items-start align-top">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-6 lg:gap-8 max-w-lg sm:max-w-none mx-auto items-start">
                {pagedProducts.map(p => (
                  <div key={p.id} className="self-start">
                    <ProductCard 
@@ -303,17 +347,16 @@ function App() {
                ))}
             </div>
 
-            {/* Infinite Scroll Sentinel */}
             {filteredProducts.length > visibleCount && (
               <div ref={observerTarget} className="w-full py-12 flex flex-col items-center justify-center gap-3">
                  <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
-                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Carregando mais ofertas...</p>
+                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Carregando...</p>
               </div>
             )}
 
             {filteredProducts.length === 0 && (
               <div className="text-center py-20 px-4 animate-fadeIn">
-                <p className="text-gray-400 italic">Nenhuma oferta encontrada para sua busca...</p>
+                <p className="text-gray-400 italic">Nenhuma oferta encontrada...</p>
               </div>
             )}
         </main>
@@ -322,22 +365,21 @@ function App() {
 
         <NotificationBell notifications={notifications} onClear={() => setNotifications([])} onMarkRead={() => {}} />
 
-        {/* Modal de Postagem / Edição */}
+        {/* Modal de Postagem */}
         {isPostModalOpen && (
           <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slideUp my-auto">
                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                  <div className="flex items-center gap-2">
-                   <svg className="w-5 h-5 text-brand-600 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-                   <h2 className="font-bold text-gray-900">{editingProduct ? 'Editar Oferta' : 'Enviar Nova Oferta ML'}</h2>
+                   <svg className="w-5 h-5 text-brand-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+                   <h2 className="font-bold text-gray-900">{editingProduct ? 'Editar Oferta' : 'Nova Oferta'}</h2>
                  </div>
-                 <button 
-                   type="button"
+                 <TouchButton 
                    onClick={() => setIsPostModalOpen(false)} 
-                   className="btn-instant p-3 text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full"
+                   className="p-3 text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full"
                  >
-                   <span className="pointer-events-none text-xl">✕</span>
-                 </button>
+                   <span className="text-xl">✕</span>
+                 </TouchButton>
                </div>
                
                <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide smooth-scroll">
@@ -349,56 +391,86 @@ function App() {
                       placeholder="https://mercadolivre.com/sec/..." 
                       value={formData.url} 
                       onChange={(e) => handleUrlChange(e.target.value)} 
-                      className={`w-full border p-4 rounded-xl text-sm outline-none focus:ring-2 ${isValidMercadoLivreUrl(formData.url) || !formData.url ? 'focus:ring-brand-500' : 'focus:ring-red-500 border-red-200'}`} 
+                      className="w-full border p-4 rounded-xl text-base outline-none focus:ring-2 focus:ring-brand-500"
+                      style={{ fontSize: '16px' }}
                     />
                     {!isValidMercadoLivreUrl(formData.url) && formData.url && (
-                      <p className="text-[10px] text-red-500 mt-1 font-bold italic">Link inválido! Use apenas links do Mercado Livre.</p>
+                      <p className="text-[10px] text-red-500 mt-1 font-bold">Link inválido!</p>
                     )}
-                    {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse mt-1 font-bold">Lendo dados do produto...</p>}
+                    {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse mt-1 font-bold">Lendo dados...</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Título da Oferta</label>
-                      <input required placeholder="Ex: iPhone 15 Pro Max" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border p-4 rounded-xl text-sm" />
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Título</label>
+                      <input 
+                        required 
+                        placeholder="Ex: iPhone 15" 
+                        value={formData.title} 
+                        onChange={(e)=>setFormData({...formData, title: e.target.value})} 
+                        className="w-full border p-4 rounded-xl text-base"
+                        style={{ fontSize: '16px' }}
+                      />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Preço Atual</label>
-                      <input required placeholder="Ex: R$ 7.499,00" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border p-4 rounded-xl text-sm" />
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Preço</label>
+                      <input 
+                        required 
+                        placeholder="R$ 7.499" 
+                        value={formData.estimatedPrice} 
+                        onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} 
+                        className="w-full border p-4 rounded-xl text-base"
+                        style={{ fontSize: '16px' }}
+                      />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Descrição da Oferta</label>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Descrição</label>
                     <textarea 
-                      placeholder="Fale um pouco sobre o produto..." 
+                      placeholder="Fale sobre o produto..." 
                       value={formData.description} 
                       onChange={(e)=>setFormData({...formData, description: e.target.value})} 
-                      className="w-full border p-4 rounded-xl text-sm min-h-[120px] resize-none focus:ring-2 focus:ring-brand-500 outline-none" 
+                      className="w-full border p-4 rounded-xl text-base min-h-[100px] resize-none focus:ring-2 focus:ring-brand-500 outline-none"
+                      style={{ fontSize: '16px' }}
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Categoria</label>
-                      <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border p-4 rounded-xl text-sm bg-white">
+                      <select 
+                        value={formData.category} 
+                        onChange={(e)=>setFormData({...formData, category: e.target.value})} 
+                        className="w-full border p-4 rounded-xl text-base bg-white"
+                        style={{ fontSize: '16px' }}
+                      >
                          <option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">URL da Imagem</label>
-                      <input required type="url" placeholder="Copie o link da imagem" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-4 rounded-xl text-sm" />
+                      <input 
+                        required 
+                        type="url" 
+                        placeholder="Link da imagem" 
+                        value={formData.imageUrl} 
+                        onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} 
+                        className="w-full border p-4 rounded-xl text-base"
+                        style={{ fontSize: '16px' }}
+                      />
                     </div>
                   </div>
 
-                  <button 
+                  <TouchButton 
+                    onClick={() => {}}
                     type="submit"
                     disabled={!isValidMercadoLivreUrl(formData.url) || isEnriching}
-                    className="btn-instant w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 min-h-[52px]"
+                    className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-extrabold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 min-h-[52px]"
                   >
-                    <span className="pointer-events-none">{editingProduct ? 'Salvar Alterações' : 'Publicar Oferta Agora'}</span>
-                    <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
-                  </button>
+                    <span>{editingProduct ? 'Salvar' : 'Publicar'}</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                  </TouchButton>
                </form>
             </div>
           </div>
@@ -412,15 +484,14 @@ function App() {
                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
               </div>
               <h3 className="text-xl font-extrabold mb-2 text-gray-900">Entre para continuar</h3>
-              <p className="text-xs text-gray-500 mb-8 leading-relaxed">Você precisa estar logado para postar ofertas e interagir com a comunidade!</p>
+              <p className="text-xs text-gray-500 mb-8">Faça login para interagir!</p>
               <div ref={authModalGoogleRef} className="flex justify-center mb-6"></div>
-              <button 
-                type="button"
+              <TouchButton 
                 onClick={() => setIsAuthModalOpen(false)} 
-                className="btn-instant text-[11px] text-gray-400 font-bold uppercase tracking-widest px-4 py-3 min-h-[44px] rounded-lg"
+                className="text-[11px] text-gray-400 font-bold uppercase tracking-widest px-4 py-3 min-h-[44px] rounded-lg"
               >
-                <span className="pointer-events-none">Fechar</span>
-              </button>
+                <span>Fechar</span>
+              </TouchButton>
             </div>
           </div>
         )}

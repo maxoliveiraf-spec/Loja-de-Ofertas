@@ -1,8 +1,52 @@
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 
 interface FooterProps {
   onOpenAdmin: () => void;
 }
+
+// Componente de botão otimizado para touch
+const TouchButton: React.FC<{
+  onClick: () => void;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ onClick, className = '', children }) => {
+  const [pressed, setPressed] = useState(false);
+  const firedRef = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+    setPressed(true);
+    
+    if (!firedRef.current) {
+      firedRef.current = true;
+      onClick();
+      setTimeout(() => { firedRef.current = false; }, 100);
+    }
+  }, [onClick]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    setPressed(false);
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!firedRef.current) onClick();
+  }, [onClick]);
+
+  return (
+    <button
+      type="button"
+      className={`fast-btn ${className} ${pressed ? 'pressed' : ''}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={() => setPressed(false)}
+      onClick={handleClick}
+    >
+      {children}
+    </button>
+  );
+};
 
 export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
   return (
@@ -17,30 +61,23 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
             <span className="text-sm font-semibold text-gray-900">Guia da Promoção</span>
           </div>
 
-          <div className="flex gap-2 flex-wrap justify-center">
-             <button 
-               type="button"
-               className="btn-instant text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]"
-             >
-               <span className="pointer-events-none">Termos de Uso</span>
-             </button>
-             <button 
-               type="button"
-               className="btn-instant text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]"
-             >
-               <span className="pointer-events-none">Privacidade</span>
-             </button>
-             <button 
-               type="button"
-               onClick={onOpenAdmin} 
-               className="btn-instant text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]"
-             >
-               <span className="pointer-events-none">Acesso Gestor</span>
-             </button>
+          <div className="flex gap-1 flex-wrap justify-center">
+            <TouchButton className="text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]">
+              <span>Termos de Uso</span>
+            </TouchButton>
+            <TouchButton className="text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]">
+              <span>Privacidade</span>
+            </TouchButton>
+            <TouchButton 
+              onClick={onOpenAdmin} 
+              className="text-sm text-gray-500 hover:text-brand-600 px-4 py-3 rounded-lg min-h-[44px]"
+            >
+              <span>Acesso Gestor</span>
+            </TouchButton>
           </div>
 
           <div className="text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} Guia da Promoção.
+            © {new Date().getFullYear()} Guia da Promoção.
           </div>
         </div>
       </div>

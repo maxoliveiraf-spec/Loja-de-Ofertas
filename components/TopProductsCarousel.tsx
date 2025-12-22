@@ -36,7 +36,7 @@ export const TopProductsCarousel: React.FC<TopProductsCarouselProps> = ({ produc
            <div className="flex animate-marquee hover:pause-animation">
              {displayProducts.map((product, idx) => (
                <div key={`${product.id}-${idx}`} className="flex-shrink-0 w-48 sm:w-56 px-3">
-                 <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3 h-full flex flex-col hover:scale-105 transition-transform duration-200">
+                 <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3 h-full flex flex-col card">
                     <div className="h-32 mb-2 flex items-center justify-center overflow-hidden rounded bg-gray-50">
                        <img src={product.imageUrl} alt={product.title} className="h-full w-full object-contain p-2" loading="lazy" />
                     </div>
@@ -47,9 +47,9 @@ export const TopProductsCarousel: React.FC<TopProductsCarouselProps> = ({ produc
                           href={product.url} 
                           target="_blank" 
                           rel="noopener noreferrer" 
-                          className="btn-instant mt-2 block w-full text-center text-[10px] bg-gray-900 text-white py-2 rounded hover:bg-gray-700 min-h-[36px] flex items-center justify-center"
+                          className="fast-btn mt-2 block w-full text-center text-[10px] bg-gray-900 text-white py-2 rounded hover:bg-gray-700 min-h-[40px] flex items-center justify-center"
                         >
-                          <span className="pointer-events-none">Ver Oferta</span>
+                          <span>Ver Oferta</span>
                         </a>
                     </div>
                  </div>
