@@ -198,7 +198,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         <div className="relative" ref={optionsRef}>
           <TouchButton
             onClick={() => setShowOptions(prev => !prev)}
-            className="text-gray-400 p-3 hover:bg-gray-100 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="icon-btn text-gray-400 p-3 hover:bg-gray-100 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center"
             ariaLabel="Opções"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
@@ -265,7 +265,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         <div className="flex items-center">
           <TouchButton
             onClick={handleLike}
-            className={`${isLiked ? 'text-red-500' : 'text-gray-700'} p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center`}
+            className={`icon-btn ${isLiked ? 'text-red-500' : 'text-gray-700'} p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center`}
             ariaLabel={isLiked ? "Descurtir" : "Curtir"}
           >
             <svg className={`w-7 h-7 ${isLiked ? 'scale-110' : ''}`} fill={isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -275,7 +275,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
           
           <TouchButton
             onClick={() => setShowComments(prev => !prev)}
-            className="text-gray-700 p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center"
+            className="icon-btn text-gray-700 p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center"
             ariaLabel="Comentários"
           >
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -285,7 +285,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
           
           <TouchButton
             onClick={handleShare}
-            className="text-gray-700 p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center"
+            className="icon-btn text-gray-700 p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center"
             ariaLabel="Compartilhar"
           >
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -296,7 +296,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         
         <TouchButton
           onClick={handleSave}
-          className={`${isSaved ? 'text-brand-600' : 'text-gray-700'} p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center`}
+          className={`icon-btn ${isSaved ? 'text-brand-600' : 'text-gray-700'} p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center`}
           ariaLabel={isSaved ? "Remover dos salvos" : "Salvar"}
         >
           <svg className="w-7 h-7" fill={isSaved ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -345,7 +345,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Comentários</span>
             <TouchButton
               onClick={() => setShowComments(false)}
-              className="text-gray-400 p-2 hover:bg-gray-200 rounded-full min-h-[40px] min-w-[40px] flex items-center justify-center"
+              className="icon-btn text-gray-400 p-2 hover:bg-gray-200 rounded-full min-h-[40px] min-w-[40px] flex items-center justify-center"
               ariaLabel="Fechar"
             >
               <span className="text-lg">✕</span>

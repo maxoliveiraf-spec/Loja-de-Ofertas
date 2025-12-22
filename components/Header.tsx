@@ -85,18 +85,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, onOpenAnalytics, se
           
           {/* Menu */}
           <div className="flex items-center gap-2">
-            <TouchButton 
-              onClick={onOpenAdmin} 
-              className="bg-brand-600 text-white p-3 rounded-full hover:bg-brand-700 shadow-md flex items-center justify-center gap-1 sm:px-4 min-h-[44px] min-w-[44px]"
-              title="Postar Nova Oferta"
-            >
+          <TouchButton 
+            onClick={onOpenAdmin} 
+            className="icon-btn bg-brand-600 text-white p-3 rounded-full hover:bg-brand-700 shadow-md flex items-center justify-center gap-1 sm:px-4 min-h-[44px] min-w-[44px]"
+            title="Postar Nova Oferta"
+          >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               <span className="hidden sm:inline text-xs font-bold uppercase">Postar</span>
             </TouchButton>
             
             <TouchButton 
               onClick={onOpenAnalytics} 
-              className="hidden sm:flex text-gray-600 hover:text-brand-600 p-3 rounded-full hover:bg-gray-100 min-h-[44px] min-w-[44px] items-center justify-center"
+              className="icon-btn hidden sm:flex text-gray-600 hover:text-brand-600 p-3 rounded-full hover:bg-gray-100 min-h-[44px] min-w-[44px] items-center justify-center"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
             </TouchButton>

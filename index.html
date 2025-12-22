@@ -57,7 +57,7 @@
       
       /* Desabilitar TODOS os comportamentos que causam delay */
       html {
-        touch-action: manipulation; /* Remove delay de double-tap zoom */
+        touch-action: manipulation;
         -ms-touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
       }
@@ -81,7 +81,7 @@
         user-select: text !important;
         -webkit-touch-callout: default !important;
         cursor: text;
-        font-size: 16px !important; /* Previne zoom no iOS */
+        font-size: 16px !important;
       }
       
       input::placeholder,
@@ -91,51 +91,73 @@
       }
       
       /* ========================================
-         BOTÕES - RESPOSTA INSTANTÂNEA
+         EXPANSÃO DE ÁREA DE TOQUE - TÉCNICA AVANÇADA
          ======================================== */
+      
+      /* 
+         Usar ::before para criar área de toque invisível expandida
+         Mínimo recomendado: 48x48px (WCAG 2.1 AAA)
+         Ideal para mobile: 56x56px
+      */
       
       button, 
       a, 
       [role="button"],
-      .clickable {
-        /* Desabilitar seleção */
+      .clickable,
+      .fast-btn {
+        position: relative;
         -webkit-user-select: none;
         user-select: none;
         -webkit-touch-callout: none;
-        
-        /* Cursor e aparência */
         cursor: pointer;
-        
-        /* CRÍTICO: Sem transições que causem delay visual */
         transition: none !important;
+      }
+      
+      /* Pseudo-elemento para expandir área de toque */
+      button::before,
+      a::before,
+      [role="button"]::before,
+      .clickable::before,
+      .fast-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        /* Área mínima de toque: 56x56px */
+        min-width: 56px;
+        min-height: 56px;
+        /* Expandir além do elemento visível */
+        width: calc(100% + 16px);
+        height: calc(100% + 16px);
+        /* Debug: descomentar para visualizar área de toque */
+        /* background: rgba(255, 0, 0, 0.1); */
+        z-index: -1;
+      }
+      
+      /* Botões pequenos (ícones) precisam de expansão maior */
+      .icon-btn::before {
+        min-width: 64px;
+        min-height: 64px;
+        width: calc(100% + 24px);
+        height: calc(100% + 24px);
       }
       
       /* Estado ativo - feedback INSTANTÂNEO */
       button:active,
       a:active,
       [role="button"]:active,
-      .clickable:active {
+      .clickable:active,
+      .fast-btn:active {
         transform: scale(0.92) !important;
         opacity: 0.7 !important;
         transition: none !important;
       }
       
-      /* Classe para botões que precisam de animação suave (opcional) */
-      .animate-btn {
-        transition: transform 50ms ease-out, opacity 50ms ease-out !important;
-      }
-      
-      /* ========================================
-         FAST BUTTON - COMPONENTE OTIMIZADO
-         ======================================== */
-      
+      /* Classe específica para botões otimizados */
       .fast-btn {
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
-        -webkit-user-select: none;
-        user-select: none;
-        cursor: pointer;
-        transition: none !important;
       }
       
       .fast-btn:active,
@@ -144,7 +166,7 @@
         opacity: 0.75 !important;
       }
       
-      /* Ícones dentro de botões não devem capturar eventos */
+      /* Ícones e elementos filhos não devem capturar eventos */
       button svg,
       button img,
       button span,
@@ -152,8 +174,48 @@
       a img,
       .fast-btn svg,
       .fast-btn img,
-      .fast-btn span {
+      .fast-btn span,
+      .icon-btn svg,
+      .icon-btn img {
         pointer-events: none !important;
+      }
+
+      /* ========================================
+         OTIMIZAÇÕES ESPECÍFICAS PARA MOBILE
+         ======================================== */
+      
+      /* Aumentar área de toque em telas pequenas */
+      @media (max-width: 640px) {
+        button::before,
+        a::before,
+        .fast-btn::before {
+          min-width: 64px;
+          min-height: 64px;
+          width: calc(100% + 20px);
+          height: calc(100% + 20px);
+        }
+        
+        .icon-btn::before {
+          min-width: 72px;
+          min-height: 72px;
+          width: calc(100% + 28px);
+          height: calc(100% + 28px);
+        }
+      }
+      
+      /* Dispositivos com tela muito pequena (< 375px) */
+      @media (max-width: 375px) {
+        button::before,
+        a::before,
+        .fast-btn::before {
+          min-width: 72px;
+          min-height: 72px;
+        }
+        
+        .icon-btn::before {
+          min-width: 80px;
+          min-height: 80px;
+        }
       }
 
       /* ========================================
@@ -168,7 +230,6 @@
         scrollbar-width: none;
       }
       
-      /* Scroll suave em containers */
       .smooth-scroll {
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
@@ -182,7 +243,6 @@
         animation-play-state: paused;
       }
       
-      /* Reduzir animações para quem prefere */
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
           animation-duration: 0.01ms !important;
@@ -195,16 +255,26 @@
          PERFORMANCE
          ======================================== */
       
-      /* Promover elementos para GPU */
       .gpu {
         transform: translateZ(0);
         will-change: transform;
         backface-visibility: hidden;
       }
       
-      /* Otimizar cards para scroll */
       .card {
         contain: layout style paint;
+      }
+      
+      /* ========================================
+         ACESSIBILIDADE - FOCO VISÍVEL
+         ======================================== */
+      
+      /* Outline visível para navegação por teclado */
+      button:focus-visible,
+      a:focus-visible,
+      .fast-btn:focus-visible {
+        outline: 3px solid #0ea5e9;
+        outline-offset: 2px;
       }
     </style>
   <script type="importmap">

@@ -172,7 +172,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ notification
       {/* Bell Button */}
       <TouchButton
         onClick={handleToggle}
-        className="relative flex items-center justify-center w-14 h-14 bg-white/90 backdrop-blur-md hover:bg-white border border-gray-200 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+        className="icon-btn relative flex items-center justify-center w-14 h-14 bg-white/90 backdrop-blur-md hover:bg-white border border-gray-200 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
         ariaLabel="Notificações"
       >
         <svg 
