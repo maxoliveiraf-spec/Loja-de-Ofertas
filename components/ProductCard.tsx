@@ -229,25 +229,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         </div>
       </div>
 
-      {/* Imagem Principal */}
-      <div className="aspect-square bg-gray-100 flex items-center justify-center relative overflow-hidden border-y border-gray-50 sm:border-none">
+      {/* Imagem Principal - Clicável para abrir link de afiliado */}
+      <a 
+        href={product.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={handlePromoClick}
+        className="fast-btn aspect-square bg-gray-100 flex items-center justify-center relative overflow-hidden border-y border-gray-50 sm:border-none cursor-pointer block"
+      >
         {!imageLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-pulse"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-pulse pointer-events-none"></div>
         )}
         <img 
           src={product.imageUrl || `https://picsum.photos/seed/${product.id}/600/600`} 
           alt={product.title} 
-          className={`w-full h-full object-contain ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          className={`w-full h-full object-contain pointer-events-none ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
         />
         {product.estimatedPrice && (
-          <div className="absolute bottom-3 left-3 bg-brand-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+          <div className="absolute bottom-3 left-3 bg-brand-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 pointer-events-none">
             {product.estimatedPrice}
           </div>
         )}
-      </div>
+        {/* Indicador visual de que a imagem é clicável */}
+        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-gray-700 px-2 py-1 rounded-full text-[10px] font-bold shadow-md z-10 pointer-events-none flex items-center gap-1">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+          <span>Ver</span>
+        </div>
+      </a>
 
       {/* Barra de Ações */}
       <div className="flex items-center justify-between px-1 pt-2 pb-1">
