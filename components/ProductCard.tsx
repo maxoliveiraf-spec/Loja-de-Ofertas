@@ -19,38 +19,39 @@ const PressButton: React.FC<{
   ariaLabel?: string;
 }> = ({ onClick, className = '', disabled = false, children, ariaLabel }) => {
   const [isPressed, setIsPressed] = useState(false);
-  const firedRef = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (disabled) return;
+    e.preventDefault();
     e.stopPropagation();
     setIsPressed(true);
-    
-    if (!firedRef.current) {
-      firedRef.current = true;
-      onClick();
-      setTimeout(() => { firedRef.current = false; }, 100);
-    }
+    onClick();
   }, [onClick, disabled]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
-    setTimeout(() => setIsPressed(false), 100);
+    e.stopPropagation();
+    setTimeout(() => setIsPressed(false), 150);
   }, []);
 
-  const handleMouseDown = useCallback(() => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (disabled) return;
+    e.preventDefault();
+    e.stopPropagation();
     setIsPressed(true);
   }, [disabled]);
 
-  const handleMouseUp = useCallback(() => {
-    setTimeout(() => setIsPressed(false), 100);
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTimeout(() => setIsPressed(false), 150);
   }, []);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (disabled) return;
+    e.preventDefault();
     e.stopPropagation();
-    if (!firedRef.current) onClick();
+    onClick();
   }, [onClick, disabled]);
 
   return (
