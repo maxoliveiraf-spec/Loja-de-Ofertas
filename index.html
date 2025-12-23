@@ -154,6 +154,19 @@
         transition: none !important;
       }
       
+      /* Classe press-btn para efeito de apertar visível */
+      .press-btn {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
+      }
+      
+      .press-btn.pressed,
+      .press-btn:active {
+        transform: scale(0.92) !important;
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+      }
+      
       /* Classe específica para botões otimizados */
       .fast-btn {
         touch-action: manipulation;
@@ -164,6 +177,13 @@
       .fast-btn.pressed {
         transform: scale(0.9) !important;
         opacity: 0.75 !important;
+      }
+      
+      /* Efeito de apertar mais suave para ícones */
+      .icon-btn.press-btn.pressed,
+      .icon-btn.press-btn:active {
+        transform: scale(0.85) !important;
+        opacity: 0.8 !important;
       }
       
       /* Ícones e elementos filhos não devem capturar eventos */
