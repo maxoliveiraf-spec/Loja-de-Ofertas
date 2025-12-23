@@ -1,5 +1,6 @@
 {
   "name": "Affiliate Dropship Store",
   "description": "A dynamic dropshipping store powered by Gemini where users can manually add and manage affiliate products via an admin interface.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "last_deploy": "2025-12-23T11:45:00Z"
 }
