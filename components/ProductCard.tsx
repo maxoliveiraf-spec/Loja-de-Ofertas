@@ -256,8 +256,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         </div>
       </a>
 
-      {/* Barra de Ações - Apenas Curtir e Compartilhar */}
-      <div className="flex items-center justify-between px-3 py-3">
+      {/* Barra de Ações - Curtir, Compartilhar e Ver Promoção */}
+      <div className="flex items-center justify-between px-3 py-3 gap-2">
         <div className="flex items-center gap-1">
           <PressButton
             onClick={handleLike}
@@ -285,6 +285,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
             </svg>
           </PressButton>
         </div>
+        
+        {/* Botão Ver a Promoção - Compacto */}
+        <a
+          href={product.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handlePromoClick}
+          className="press-btn flex-shrink-0 bg-brand-600 text-white px-4 py-2.5 rounded-lg font-bold text-xs hover:bg-brand-700 transition-colors min-h-[44px] flex items-center justify-center gap-1.5"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+          <span className="whitespace-nowrap">Ver Oferta</span>
+        </a>
       </div>
 
       {/* Título e Descrição */}
@@ -298,24 +312,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
           {product.title}
         </h3>
         {product.description && (
-          <p className="text-xs text-gray-600 leading-relaxed mb-3">
+          <p className="text-xs text-gray-600 leading-relaxed">
             {product.description}
           </p>
         )}
-        
-        {/* Botão Ver a Promoção */}
-        <a
-          href={product.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={handlePromoClick}
-          className="press-btn block w-full text-center bg-brand-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-brand-700 transition-colors min-h-[48px] flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-          </svg>
-          <span>Ver a Promoção</span>
-        </a>
       </div>
     </div>
   );
