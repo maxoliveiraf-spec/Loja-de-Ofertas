@@ -52,19 +52,17 @@
     </script>
     <style>
       /* ========================================
-         ELIMINAR DELAY DE 300MS - SOLUÇÃO AGRESSIVA
+         SOLUÇÃO SIMPLIFICADA PARA TOUCH MOBILE
          ======================================== */
       
-      /* Desabilitar TODOS os comportamentos que causam delay */
+      /* Desabilitar comportamentos que causam delay */
       html {
         touch-action: manipulation;
         -ms-touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
       }
       
-      /* Aplicar touch-action em todo o documento */
-      *, *::before, *::after {
-        touch-action: manipulation;
+      * {
         -webkit-tap-highlight-color: transparent;
       }
       
@@ -84,167 +82,50 @@
         font-size: 16px !important;
       }
       
-      input::placeholder,
-      textarea::placeholder {
-        opacity: 0.6;
-        color: #9ca3af;
-      }
-      
       /* ========================================
-         EXPANSÃO DE ÁREA DE TOQUE - TÉCNICA AVANÇADA
+         BOTÕES E LINKS - ÁREA DE TOQUE EXPANDIDA
          ======================================== */
       
-      /* 
-         Usar ::before para criar área de toque invisível expandida
-         Mínimo recomendado: 48x48px (WCAG 2.1 AAA)
-         Ideal para mobile: 56x56px
-      */
-      
+      /* Garantir que botões tenham área mínima de toque */
       button, 
-      a, 
-      [role="button"],
-      .clickable,
-      .fast-btn {
-        position: relative;
+      a,
+      .press-btn {
         -webkit-user-select: none;
         user-select: none;
-        -webkit-touch-callout: none;
         cursor: pointer;
-        transition: none !important;
+        /* Padding mínimo para área de toque */
+        min-height: 44px;
+        min-width: 44px;
       }
       
-      /* Pseudo-elemento para expandir área de toque */
-      button::before,
-      a::before,
-      [role="button"]::before,
-      .clickable::before,
-      .fast-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        /* Área mínima de toque: 56x56px */
-        min-width: 56px;
-        min-height: 56px;
-        /* Expandir além do elemento visível */
-        width: calc(100% + 16px);
-        height: calc(100% + 16px);
-        /* Debug: descomentar para visualizar área de toque */
-        /* background: rgba(255, 0, 0, 0.1); */
-        z-index: -1;
-      }
-      
-      /* Botões pequenos (ícones) precisam de expansão maior */
-      .icon-btn::before {
-        min-width: 64px;
-        min-height: 64px;
-        width: calc(100% + 24px);
-        height: calc(100% + 24px);
-      }
-      
-      /* Estado ativo - feedback INSTANTÂNEO */
-      button:active,
-      a:active,
-      [role="button"]:active,
-      .clickable:active,
-      .fast-btn:active {
-        transform: scale(0.92) !important;
-        opacity: 0.7 !important;
-        transition: none !important;
-      }
-      
-      /* Classe press-btn para efeito de apertar visível */
-      .press-btn {
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-        transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
-      }
-      
-      .press-btn.pressed,
-      .press-btn:active {
-        transform: scale(0.92) !important;
-        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-      }
-      
-      /* Classe específica para botões otimizados */
-      .fast-btn {
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-      }
-      
-      .fast-btn:active,
-      .fast-btn.pressed {
-        transform: scale(0.9) !important;
-        opacity: 0.75 !important;
-      }
-      
-      /* Efeito de apertar mais suave para ícones */
-      .icon-btn.press-btn.pressed,
-      .icon-btn.press-btn:active {
-        transform: scale(0.85) !important;
-        opacity: 0.8 !important;
-      }
-      
-      /* Ícones e elementos filhos não devem capturar eventos */
-      button svg,
-      button img,
-      button span,
-      button path,
-      a svg,
-      a img,
-      a span,
-      a path,
-      .fast-btn svg,
-      .fast-btn img,
-      .fast-btn span,
-      .fast-btn path,
-      .press-btn svg,
-      .press-btn img,
-      .press-btn span,
-      .press-btn path,
-      .icon-btn svg,
-      .icon-btn img,
-      .icon-btn path {
+      /* Elementos filhos NÃO devem capturar eventos */
+      button > *,
+      a > *,
+      .press-btn > * {
         pointer-events: none !important;
       }
-
+      
       /* ========================================
-         OTIMIZAÇÕES ESPECÍFICAS PARA MOBILE
+         EFEITO DE APERTAR
          ======================================== */
       
-      /* Aumentar área de toque em telas pequenas */
-      @media (max-width: 640px) {
-        button::before,
-        a::before,
-        .fast-btn::before {
-          min-width: 64px;
-          min-height: 64px;
-          width: calc(100% + 20px);
-          height: calc(100% + 20px);
-        }
-        
-        .icon-btn::before {
-          min-width: 72px;
-          min-height: 72px;
-          width: calc(100% + 28px);
-          height: calc(100% + 28px);
-        }
+      .press-btn {
+        transition: transform 0.1s ease-out;
       }
       
-      /* Dispositivos com tela muito pequena (< 375px) */
-      @media (max-width: 375px) {
-        button::before,
-        a::before,
-        .fast-btn::before {
-          min-width: 72px;
-          min-height: 72px;
-        }
-        
-        .icon-btn::before {
-          min-width: 80px;
-          min-height: 80px;
-        }
+      .press-btn:active,
+      .press-btn.pressed {
+        transform: scale(0.92) !important;
+      }
+      
+      /* Ícones de ação */
+      .icon-btn {
+        transition: transform 0.1s ease-out;
+      }
+      
+      .icon-btn:active,
+      .icon-btn.pressed {
+        transform: scale(0.85) !important;
       }
 
       /* ========================================
@@ -284,12 +165,6 @@
          PERFORMANCE
          ======================================== */
       
-      .gpu {
-        transform: translateZ(0);
-        will-change: transform;
-        backface-visibility: hidden;
-      }
-      
       .card {
         contain: layout style paint;
       }
@@ -298,10 +173,8 @@
          ACESSIBILIDADE - FOCO VISÍVEL
          ======================================== */
       
-      /* Outline visível para navegação por teclado */
       button:focus-visible,
-      a:focus-visible,
-      .fast-btn:focus-visible {
+      a:focus-visible {
         outline: 3px solid #0ea5e9;
         outline-offset: 2px;
       }

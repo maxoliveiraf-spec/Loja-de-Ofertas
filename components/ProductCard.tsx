@@ -10,69 +10,6 @@ interface ProductCardProps {
   isAdmin?: boolean;
 }
 
-// Componente de botão otimizado com efeito de apertar
-const PressButton: React.FC<{
-  onClick: () => void;
-  className?: string;
-  disabled?: boolean;
-  children: React.ReactNode;
-  ariaLabel?: string;
-}> = ({ onClick, className = '', disabled = false, children, ariaLabel }) => {
-  const [isPressed, setIsPressed] = useState(false);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (disabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setIsPressed(true);
-    onClick();
-  }, [onClick, disabled]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setTimeout(() => setIsPressed(false), 150);
-  }, []);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (disabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setIsPressed(true);
-  }, [disabled]);
-
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setTimeout(() => setIsPressed(false), 150);
-  }, []);
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    if (disabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    onClick();
-  }, [onClick, disabled]);
-
-  return (
-    <button
-      type="button"
-      className={`press-btn ${className} ${isPressed ? 'pressed' : ''}`}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={() => setIsPressed(false)}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={() => setIsPressed(false)}
-      onClick={handleClick}
-      disabled={disabled}
-      aria-label={ariaLabel}
-    >
-      {children}
-    </button>
-  );
-};
-
 export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, onAuthRequired, onEdit, isAdmin }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(product.likes?.length || 0);
@@ -81,7 +18,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
   const optionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Qualquer pessoa pode ver se curtiu (usando localStorage)
     const localLikes = JSON.parse(localStorage.getItem('likedProducts') || '[]');
     setIsLiked(localLikes.includes(product.id));
     setLikesCount(product.likes?.length || 0);
@@ -109,7 +45,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
     setIsLiked(newIsLiked);
     setLikesCount(prev => newIsLiked ? prev + 1 : prev - 1);
 
-    // Salvar no localStorage
     const localLikes = JSON.parse(localStorage.getItem('likedProducts') || '[]');
     if (newIsLiked) {
       localLikes.push(product.id);
@@ -119,7 +54,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
     }
     localStorage.setItem('likedProducts', JSON.stringify(localLikes));
 
-    // Se estiver logado, salvar no banco também
     if (currentUser) {
       socialService.toggleLike(product.id, currentUser.uid, !newIsLiked).catch(console.error);
     }
@@ -191,33 +125,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         {/* Menu de Opções - Apenas para autor/admin */}
         {(canEdit || canDelete) && (
           <div className="relative" ref={optionsRef}>
-            <PressButton
+            <button
+              type="button"
               onClick={() => setShowOptions(prev => !prev)}
-              className="icon-btn text-gray-400 p-3 hover:bg-gray-100 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center"
-              ariaLabel="Opções"
+              className="icon-btn text-gray-400 p-3 hover:bg-gray-100 rounded-full flex items-center justify-center"
+              aria-label="Opções"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-            </PressButton>
+            </button>
             
             {showOptions && (
               <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 overflow-hidden animate-fadeIn">
                 {canEdit && (
-                  <PressButton
+                  <button
+                    type="button"
                     onClick={() => { onEdit?.(product); setShowOptions(false); }}
-                    className="w-full text-left px-4 py-4 text-sm font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 min-h-[48px]"
+                    className="w-full text-left px-4 py-4 text-sm font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                     <span>Editar Oferta</span>
-                  </PressButton>
+                  </button>
                 )}
                 {canDelete && (
-                  <PressButton
+                  <button
+                    type="button"
                     onClick={handleDelete}
-                    className="w-full text-left px-4 py-4 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-3 min-h-[48px]"
+                    className="w-full text-left px-4 py-4 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-3"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                     <span>Excluir Oferta</span>
-                  </PressButton>
+                  </button>
                 )}
               </div>
             )}
@@ -234,23 +171,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
         className="press-btn aspect-square bg-gray-100 flex items-center justify-center relative overflow-hidden border-y border-gray-50 sm:border-none cursor-pointer block"
       >
         {!imageLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-pulse pointer-events-none"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-pulse"></div>
         )}
         <img 
           src={product.imageUrl || `https://picsum.photos/seed/${product.id}/600/600`} 
           alt={product.title} 
-          className={`w-full h-full object-contain pointer-events-none ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          className={`w-full h-full object-contain ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
         />
         {product.estimatedPrice && (
-          <div className="absolute bottom-3 left-3 bg-brand-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 pointer-events-none">
+          <div className="absolute bottom-3 left-3 bg-brand-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
             {product.estimatedPrice}
           </div>
         )}
-        {/* Indicador visual de que a imagem é clicável */}
-        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-gray-700 px-2 py-1 rounded-full text-[10px] font-bold shadow-md z-10 pointer-events-none flex items-center gap-1">
+        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-gray-700 px-2 py-1 rounded-full text-[10px] font-bold shadow-md z-10 flex items-center gap-1">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
           <span>Ver</span>
         </div>
@@ -258,14 +194,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
 
       {/* Barra de Ações - Curtir, Compartilhar e Ver Promoção */}
       <div className="flex items-center justify-between px-3 py-3 gap-2">
-        <div className="flex items-center gap-1">
-          <PressButton
+        <div className="flex items-center gap-2">
+          {/* Botão Curtir */}
+          <button
+            type="button"
             onClick={handleLike}
-            className={`icon-btn ${isLiked ? 'text-red-500' : 'text-gray-700'} p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors duration-200`}
-            ariaLabel={isLiked ? "Descurtir" : "Curtir"}
+            className={`icon-btn ${isLiked ? 'text-red-500' : 'text-gray-700'} p-3 rounded-full flex items-center justify-center active:scale-90`}
+            aria-label={isLiked ? "Descurtir" : "Curtir"}
           >
             <svg 
-              className={`w-7 h-7 transition-transform duration-200 ${isLiked ? 'scale-110' : ''}`} 
+              className={`w-7 h-7 ${isLiked ? 'scale-110' : ''}`} 
               fill={isLiked ? "currentColor" : "none"} 
               stroke="currentColor" 
               viewBox="0 0 24 24" 
@@ -273,31 +211,33 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
             </svg>
-          </PressButton>
+          </button>
           
-          <PressButton
+          {/* Botão Compartilhar */}
+          <button
+            type="button"
             onClick={handleShare}
-            className="icon-btn text-gray-700 p-3 rounded-full min-h-[48px] min-w-[48px] flex items-center justify-center"
-            ariaLabel="Compartilhar"
+            className="icon-btn text-gray-700 p-3 rounded-full flex items-center justify-center active:scale-90"
+            aria-label="Compartilhar"
           >
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
-          </PressButton>
+          </button>
         </div>
         
-        {/* Botão Ver a Promoção - Compacto */}
+        {/* Botão Ver Oferta */}
         <a
           href={product.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handlePromoClick}
-          className="press-btn flex-shrink-0 bg-brand-600 text-white px-4 py-2.5 rounded-lg font-bold text-xs hover:bg-brand-700 transition-colors min-h-[44px] flex items-center justify-center gap-1.5"
+          className="press-btn flex-shrink-0 bg-brand-600 text-white px-4 py-2.5 rounded-lg font-bold text-xs hover:bg-brand-700 flex items-center justify-center gap-1.5 active:scale-95"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
           </svg>
-          <span className="whitespace-nowrap">Ver Oferta</span>
+          <span>Ver Oferta</span>
         </a>
       </div>
 
