@@ -1,5 +1,5 @@
-import React from 'react';
-import { Helmet } from '@dr.pogodin/react-helmet';
+import React, { useMemo } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Product } from '../types';
 
 interface SEOProps {
@@ -11,38 +11,46 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
   const siteDescription = "Encontre as melhores ofertas e promoções da internet. Smartphones, eletrônicos, moda e muito mais com descontos imperdíveis.";
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://loja-de-ofertas.vercel.app';
   
-  // Create JSON-LD Structured Data for the Product List
-  // This helps Google understand that this page is a collection of products
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    "itemListElement": products.map((product, index) => ({
-      "@type": "ListItem",
-      "position": index + 1,
-      "item": {
-        "@type": "Product",
-        "name": product.title,
-        "description": product.description,
-        "image": product.imageUrl || "",
-        "offers": {
-          "@type": "Offer",
-          "priceCurrency": "BRL",
-          "price": product.estimatedPrice ? product.estimatedPrice.replace(/[^0-9,]/g, '').replace(',', '.') : "0.00",
-          "availability": "https://schema.org/InStock",
-          "url": product.url
-        }
-      }
-    }))
-  };
+  // Sanitização rigorosa para evitar estruturas circulares (Circular Structure)
+  // Garantimos que cada campo seja convertido explicitamente para string primitiva
+  const jsonLdString = useMemo(() => {
+    try {
+      if (!products || !Array.isArray(products)) return '{}';
 
-  let jsonLdString = '';
-  try {
-    jsonLdString = JSON.stringify(structuredData);
-  } catch (e) {
-    console.warn("Error generating JSON-LD structured data:", e);
-    // Fallback to empty object or ignore
-    jsonLdString = '{}';
-  }
+      const structuredData = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "itemListElement": products.slice(0, 20).map((product, index) => {
+          // Extração segura de preço
+          const rawPrice = String(product.estimatedPrice || "0.00");
+          const sanitizedPrice = rawPrice.replace(/[^0-9,]/g, '').replace(',', '.');
+
+          return {
+            "@type": "ListItem",
+            "position": index + 1,
+            "item": {
+              "@type": "Product",
+              "name": String(product.title || "Produto"),
+              "description": String(product.description || ""),
+              "image": String(product.imageUrl || ""),
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "BRL",
+                "price": sanitizedPrice || "0.00",
+                "availability": "https://schema.org/InStock",
+                "url": String(product.url || siteUrl)
+              }
+            }
+          };
+        })
+      };
+
+      return JSON.stringify(structuredData);
+    } catch (e) {
+      console.error("Critical error generating JSON-LD:", e);
+      return '{}';
+    }
+  }, [products, siteUrl]);
 
   return (
     <Helmet>
@@ -57,7 +65,7 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
       <meta property="og:title" content={siteTitle} />
       <meta property="og:description" content={siteDescription} />
       {products.length > 0 && products[0].imageUrl && (
-        <meta property="og:image" content={products[0].imageUrl} />
+        <meta property="og:image" content={String(products[0].imageUrl)} />
       )}
 
       {/* Twitter */}

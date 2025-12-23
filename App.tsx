@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { HelmetProvider } from '@dr.pogodin/react-helmet';
+import React, { useState, useEffect, useRef } from 'react';
+import { HelmetProvider } from 'react-helmet-async';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { TopProductsCarousel } from './components/TopProductsCarousel';
@@ -16,55 +16,6 @@ const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
 const INITIAL_ITEMS = 12;
 const ITEMS_PER_PAGE = 8;
 
-// Componente de botão otimizado para touch - dispara no touchstart
-const TouchButton: React.FC<{
-  onClick: () => void;
-  className?: string;
-  disabled?: boolean;
-  children: React.ReactNode;
-  type?: 'button' | 'submit';
-}> = ({ onClick, className = '', disabled = false, children, type = 'button' }) => {
-  const [pressed, setPressed] = useState(false);
-  const firedRef = useRef(false);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (disabled) return;
-    e.stopPropagation();
-    setPressed(true);
-    
-    if (!firedRef.current) {
-      firedRef.current = true;
-      onClick();
-      setTimeout(() => { firedRef.current = false; }, 100);
-    }
-  }, [onClick, disabled]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    setPressed(false);
-  }, []);
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    if (disabled) return;
-    e.stopPropagation();
-    if (!firedRef.current) onClick();
-  }, [onClick, disabled]);
-
-  return (
-    <button
-      type={type}
-      className={`fast-btn ${className} ${pressed ? 'pressed' : ''}`}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={() => setPressed(false)}
-      onClick={handleClick}
-      disabled={disabled}
-    >
-      {children}
-    </button>
-  );
-};
-
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_ITEMS);
@@ -74,7 +25,6 @@ function App() {
   const [isEnriching, setIsEnriching] = useState(false);
   
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   
@@ -88,7 +38,7 @@ function App() {
     url: '', 
     title: '', 
     estimatedPrice: '', 
-    category: 'Eletrônicos', 
+    category: 'Geral', 
     imageUrl: '', 
     description: '' 
   });
@@ -171,14 +121,9 @@ function App() {
      trackNotificationSent();
   };
 
-  const isValidMercadoLivreUrl = (url: string) => {
-    const mlRegex = /^(https?:\/\/)?(www\.)?(mercadolivre\.com(\.br)?|mlstatic\.com|mercadolivre\.com\/sec\/)\/.+$/i;
-    return mlRegex.test(url.trim());
-  };
-
   const handleUrlChange = async (url: string) => {
     setFormData(prev => ({ ...prev, url }));
-    if (!editingProduct && isValidMercadoLivreUrl(url) && !formData.title) {
+    if (!editingProduct && (url.includes('mercadolivre') || url.includes('amazon')) && !formData.title) {
       setIsEnriching(true);
       try {
         const enriched = await enrichProductData(url);
@@ -204,22 +149,9 @@ function App() {
       return;
     }
 
-    if (!isValidMercadoLivreUrl(formData.url)) {
-      alert("Erro: Apenas links oficiais do Mercado Livre são permitidos!");
-      return;
-    }
-
-    if (!formData.title.trim() || !formData.estimatedPrice.trim() || !formData.imageUrl.trim()) {
-      alert("Erro: Preencha todos os campos obrigatórios.");
-      return;
-    }
-
     try {
       if (editingProduct) {
-        await productService.update(editingProduct.id, {
-          ...formData,
-          category: formData.category
-        });
+        await productService.update(editingProduct.id, { ...formData });
         alert("🎉 Oferta atualizada!");
       } else {
         await productService.add({ 
@@ -232,8 +164,7 @@ function App() {
         });
         alert("🎉 Oferta publicada!");
       }
-
-      setFormData({ url: '', title: '', estimatedPrice: '', category: 'Eletrônicos', imageUrl: '', description: '' });
+      setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', description: '' });
       setEditingProduct(null);
       setIsPostModalOpen(false);
     } catch (err) {
@@ -241,7 +172,7 @@ function App() {
     }
   };
 
-  const openEdit = useCallback((product: Product) => {
+  const openEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData({
       url: product.url,
@@ -252,88 +183,46 @@ function App() {
       description: product.description || ''
     });
     setIsPostModalOpen(true);
-  }, []);
-
-  const handleCategoryChange = useCallback((cat: string) => {
-    setFilterCategory(cat);
-    setVisibleCount(INITIAL_ITEMS);
-  }, []);
-
-  const handleOpenAdmin = useCallback(() => {
-    setEditingProduct(null);
-    setFormData({url:'',title:'',estimatedPrice:'',category:'Eletrônicos',imageUrl:'',description:''});
-    user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true);
-  }, [user]);
-
-  const handleOpenAnalytics = useCallback(() => {
-    isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito.");
-  }, [isUserAdmin]);
-
-  const handleSearchChange = useCallback((q: string) => {
-    setSearchQuery(q);
-    setVisibleCount(INITIAL_ITEMS);
-  }, []);
+  };
 
   const filteredProducts = products.filter(p => {
-    const matchesCategory = filterCategory === 'Todos' || p.category === filterCategory;
     const query = searchQuery.toLowerCase();
-    return matchesCategory && (p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
+    return p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
   });
 
   const pagedProducts = filteredProducts.slice(0, visibleCount);
 
   return (
     <HelmetProvider>
-      <div className="min-h-screen bg-white sm:bg-gray-50 flex flex-col font-sans">
+      <div className="min-h-screen bg-white flex flex-col font-sans">
         <SEO products={products} />
 
         <Header 
-          onOpenAdmin={handleOpenAdmin}
-          onOpenAnalytics={handleOpenAnalytics}
+          onOpenAdmin={() => { setEditingProduct(null); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }}
+          onOpenAnalytics={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito.")}
           totalProducts={products.length}
           searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
+          onSearchChange={(q) => { setSearchQuery(q); setVisibleCount(INITIAL_ITEMS); }}
         />
 
-        <main className="flex-1 w-full max-w-7xl mx-auto py-0 sm:py-8 sm:px-4">
-            <div className="hidden sm:block mb-8">
+        <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden">
+            
+            <div className="hidden sm:block mt-6 px-4">
               <TopProductsCarousel products={products} />
             </div>
 
-            {/* Categorias Mobile */}
-            <div className="sm:hidden flex overflow-x-auto gap-3 p-4 scrollbar-hide smooth-scroll border-b border-gray-100 bg-white sticky top-16 z-30">
-               {['Todos', 'Eletrônicos', 'Moda', 'Casa', 'Beleza'].map(cat => (
-                 <TouchButton 
-                  key={cat} 
-                  onClick={() => handleCategoryChange(cat)}
-                  className="flex-shrink-0 flex flex-col items-center gap-2 p-2 rounded-xl min-w-[64px]"
-                 >
-                   <div className={`w-14 h-14 rounded-full p-0.5 ${filterCategory === cat ? 'bg-gradient-to-tr from-yellow-400 to-fuchsia-600' : 'bg-gray-200'}`}>
-                      <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-gray-500 overflow-hidden text-center p-1">
-                        {cat}
-                      </div>
-                   </div>
-                   <span className={`text-[11px] ${filterCategory === cat ? 'font-black text-gray-900' : 'font-medium text-gray-400'}`}>{cat}</span>
-                 </TouchButton>
-               ))}
-            </div>
-
             {isAnalyticsOpen && isUserAdmin && (
-              <div className="mb-12 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
+              <div className="m-4 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
                 <div className="flex justify-between items-center mb-6">
-                   <h2 className="text-xl font-bold text-gray-900">Estatísticas</h2>
-                   <TouchButton 
-                     onClick={() => setIsAnalyticsOpen(false)} 
-                     className="text-gray-400 hover:text-red-500 px-4 py-3 rounded-lg min-h-[44px]"
-                   >
-                     <span>Fechar</span>
-                   </TouchButton>
+                   <h2 className="text-xl font-bold text-gray-900">Painel de Métricas</h2>
+                   <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 p-2">✕</button>
                 </div>
                 <AnalyticsDashboard products={products} />
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-6 lg:gap-8 max-w-lg sm:max-w-none mx-auto items-start">
+            {/* Grid de Feed de Produtos - Espaçamento ajustado sem as categorias */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-2 sm:gap-y-10 max-w-lg sm:max-w-none mx-auto pt-4 sm:pt-8">
                {pagedProducts.map(p => (
                  <div key={p.id} className="self-start">
                    <ProductCard 
@@ -347,16 +236,18 @@ function App() {
                ))}
             </div>
 
+            {/* Scroll Infinito */}
             {filteredProducts.length > visibleCount && (
-              <div ref={observerTarget} className="w-full py-12 flex flex-col items-center justify-center gap-3">
-                 <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
-                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Carregando...</p>
+              <div ref={observerTarget} className="w-full py-16 flex flex-col items-center justify-center gap-3">
+                 <div className="w-7 h-7 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Buscando novas ofertas</p>
               </div>
             )}
 
             {filteredProducts.length === 0 && (
-              <div className="text-center py-20 px-4 animate-fadeIn">
-                <p className="text-gray-400 italic">Nenhuma oferta encontrada...</p>
+              <div className="text-center py-24 px-4 animate-fadeIn">
+                <div className="text-5xl mb-4 opacity-20">🔎</div>
+                <p className="text-gray-400 font-bold italic">Nenhuma oferta encontrada...</p>
               </div>
             )}
         </main>
@@ -365,112 +256,32 @@ function App() {
 
         <NotificationBell notifications={notifications} onClear={() => setNotifications([])} onMarkRead={() => {}} />
 
-        {/* Modal de Postagem */}
+        {/* Modal de Publicação */}
         {isPostModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slideUp my-auto">
-               <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                 <div className="flex items-center gap-2">
-                   <svg className="w-5 h-5 text-brand-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-                   <h2 className="font-bold text-gray-900">{editingProduct ? 'Editar Oferta' : 'Nova Oferta'}</h2>
-                 </div>
-                 <TouchButton 
-                   onClick={() => setIsPostModalOpen(false)} 
-                   className="p-3 text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full"
-                 >
-                   <span className="text-xl">✕</span>
-                 </TouchButton>
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-slideUp">
+               <div className="p-6 border-b flex justify-between items-center bg-gray-50/50">
+                 <h2 className="font-black text-gray-900 text-lg uppercase tracking-tight">{editingProduct ? 'Editar Oferta' : 'Nova Publicação'}</h2>
+                 <button onClick={() => setIsPostModalOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300">✕</button>
                </div>
-               
-               <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide smooth-scroll">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Link do Mercado Livre</label>
-                    <input 
-                      required
-                      type="url"
-                      placeholder="https://mercadolivre.com/sec/..." 
-                      value={formData.url} 
-                      onChange={(e) => handleUrlChange(e.target.value)} 
-                      className="w-full border p-4 rounded-xl text-base outline-none focus:ring-2 focus:ring-brand-500"
-                      style={{ fontSize: '16px' }}
-                    />
-                    {!isValidMercadoLivreUrl(formData.url) && formData.url && (
-                      <p className="text-[10px] text-red-500 mt-1 font-bold">Link inválido!</p>
-                    )}
-                    {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse mt-1 font-bold">Lendo dados...</p>}
+               <form onSubmit={handleAddProduct} className="p-8 space-y-5 max-h-[75vh] overflow-y-auto">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">URL de Afiliado (ML/Amazon)</label>
+                    <input required type="url" placeholder="Cole o link aqui..." value={formData.url} onChange={(e) => handleUrlChange(e.target.value)} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500 transition-colors" />
+                    {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse font-bold ml-1">IA está analisando o produto...</p>}
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Título</label>
-                      <input 
-                        required 
-                        placeholder="Ex: iPhone 15" 
-                        value={formData.title} 
-                        onChange={(e)=>setFormData({...formData, title: e.target.value})} 
-                        className="w-full border p-4 rounded-xl text-base"
-                        style={{ fontSize: '16px' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Preço</label>
-                      <input 
-                        required 
-                        placeholder="R$ 7.499" 
-                        value={formData.estimatedPrice} 
-                        onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} 
-                        className="w-full border p-4 rounded-xl text-base"
-                        style={{ fontSize: '16px' }}
-                      />
-                    </div>
+                  <input required placeholder="Nome do Produto" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
+                  <input required placeholder="Preço (ex: R$ 199,90)" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
+                  <textarea placeholder="Pequena descrição ou destaque..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm min-h-[120px] focus:border-brand-500" />
+                  <div className="grid grid-cols-1 gap-4">
+                    <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm bg-white focus:border-brand-500">
+                       <option>Geral</option><option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option><option>Games</option><option>Cozinha</option>
+                    </select>
+                    <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
                   </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Descrição</label>
-                    <textarea 
-                      placeholder="Fale sobre o produto..." 
-                      value={formData.description} 
-                      onChange={(e)=>setFormData({...formData, description: e.target.value})} 
-                      className="w-full border p-4 rounded-xl text-base min-h-[100px] resize-none focus:ring-2 focus:ring-brand-500 outline-none"
-                      style={{ fontSize: '16px' }}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Categoria</label>
-                      <select 
-                        value={formData.category} 
-                        onChange={(e)=>setFormData({...formData, category: e.target.value})} 
-                        className="w-full border p-4 rounded-xl text-base bg-white"
-                        style={{ fontSize: '16px' }}
-                      >
-                         <option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">URL da Imagem</label>
-                      <input 
-                        required 
-                        type="url" 
-                        placeholder="Link da imagem" 
-                        value={formData.imageUrl} 
-                        onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} 
-                        className="w-full border p-4 rounded-xl text-base"
-                        style={{ fontSize: '16px' }}
-                      />
-                    </div>
-                  </div>
-
-                  <TouchButton 
-                    onClick={() => {}}
-                    type="submit"
-                    disabled={!isValidMercadoLivreUrl(formData.url) || isEnriching}
-                    className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-extrabold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 min-h-[52px]"
-                  >
-                    <span>{editingProduct ? 'Salvar' : 'Publicar'}</span>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
-                  </TouchButton>
+                  <button type="submit" className="w-full bg-[#0284c7] text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                    {editingProduct ? 'Salvar Mudanças' : 'Publicar na Loja'}
+                  </button>
                </form>
             </div>
           </div>
@@ -478,20 +289,15 @@ function App() {
 
         {/* Modal de Login */}
         {isAuthModalOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl animate-slideUp">
-              <div className="w-16 h-16 bg-brand-50 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-white rounded-[2.5rem] p-10 max-w-xs w-full text-center shadow-2xl animate-slideUp">
+              <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-600">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               </div>
-              <h3 className="text-xl font-extrabold mb-2 text-gray-900">Entre para continuar</h3>
-              <p className="text-xs text-gray-500 mb-8">Faça login para interagir!</p>
-              <div ref={authModalGoogleRef} className="flex justify-center mb-6"></div>
-              <TouchButton 
-                onClick={() => setIsAuthModalOpen(false)} 
-                className="text-[11px] text-gray-400 font-bold uppercase tracking-widest px-4 py-3 min-h-[44px] rounded-lg"
-              >
-                <span>Fechar</span>
-              </TouchButton>
+              <h3 className="text-2xl font-black mb-3 text-gray-900 tracking-tight">Postar Oferta</h3>
+              <p className="text-[12px] text-gray-500 mb-10 px-2 leading-relaxed font-medium">Apenas curadores autorizados podem postar novas ofertas. Entre com sua conta para continuar.</p>
+              <div ref={authModalGoogleRef} className="flex justify-center mb-8"></div>
+              <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em] p-2 hover:text-gray-600 transition-colors">Voltar</button>
             </div>
           </div>
         )}

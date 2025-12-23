@@ -29,8 +29,8 @@
             },
             animation: {
               marquee: 'marquee 25s linear infinite',
-              fadeIn: 'fadeIn 0.1s ease-out',
-              slideUp: 'slideUp 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+              fadeIn: 'fadeIn 0.2s ease-out',
+              slideUp: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             },
             keyframes: {
               marquee: {
@@ -51,132 +51,46 @@
       }
     </script>
     <style>
-      /* ========================================
-         SOLUÇÃO SIMPLIFICADA PARA TOUCH MOBILE
-         ======================================== */
-      
-      /* Desabilitar comportamentos que causam delay */
-      html {
-        touch-action: manipulation;
-        -ms-touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-      }
-      
+      /* Melhorar responsividade de toque globalmente */
       * {
         -webkit-tap-highlight-color: transparent;
-      }
-      
-      /* ========================================
-         INPUTS E TEXTAREAS - INTERAÇÃO NORMAL
-         ======================================== */
-      
-      input, 
-      textarea,
-      select,
-      [contenteditable="true"] {
-        touch-action: auto !important;
-        -webkit-user-select: text !important;
-        user-select: text !important;
-        -webkit-touch-callout: default !important;
-        cursor: text;
-        font-size: 16px !important;
-      }
-      
-      /* ========================================
-         BOTÕES E LINKS - ÁREA DE TOQUE EXPANDIDA
-         ======================================== */
-      
-      /* Garantir que botões tenham área mínima de toque */
-      button, 
-      a,
-      .press-btn {
+        touch-action: manipulation;
+        /* Evita seleção de texto acidental ao clicar rápido */
         -webkit-user-select: none;
         user-select: none;
-        cursor: pointer;
-        /* Padding mínimo para área de toque */
-        min-height: 44px;
-        min-width: 44px;
       }
       
-      /* Elementos filhos NÃO devem capturar eventos */
-      button > *,
-      a > *,
-      .press-btn > * {
-        pointer-events: none !important;
-      }
-      
-      /* ========================================
-         EFEITO DE APERTAR
-         ======================================== */
-      
-      .press-btn {
-        transition: transform 0.1s ease-out;
-      }
-      
-      .press-btn:active,
-      .press-btn.pressed {
-        transform: scale(0.92) !important;
-      }
-      
-      /* Ícones de ação */
-      .icon-btn {
-        transition: transform 0.1s ease-out;
-      }
-      
-      .icon-btn:active,
-      .icon-btn.pressed {
-        transform: scale(0.85) !important;
+      /* Permitir seleção apenas em inputs e textareas */
+      input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
       }
 
-      /* ========================================
-         SCROLLBAR E OVERFLOW
-         ======================================== */
-      
       .scrollbar-hide::-webkit-scrollbar {
-        display: none;
+          display: none;
       }
       .scrollbar-hide {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
       }
-      
-      .smooth-scroll {
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-      }
-      
-      /* ========================================
-         ANIMAÇÕES
-         ======================================== */
-      
       .hover\:pause-animation:hover {
         animation-play-state: paused;
       }
-      
-      @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after {
-          animation-duration: 0.01ms !important;
-          animation-iteration-count: 1 !important;
-          transition-duration: 0.01ms !important;
-        }
+
+      /* Garantir que botões e links tenham área de toque mínima no mobile */
+      button, a, .cursor-pointer {
+        min-height: 48px; /* Aumentado para 48px conforme diretrizes de acessibilidade e toque */
+        min-width: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        /* Força o feedback visual a ser instantâneo ignorando transições no estado ativo */
       }
       
-      /* ========================================
-         PERFORMANCE
-         ======================================== */
-      
-      .card {
-        contain: layout style paint;
-      }
-      
-      /* ========================================
-         ACESSIBILIDADE - FOCO VISÍVEL
-         ======================================== */
-      
-      button:focus-visible,
-      a:focus-visible {
-        outline: 3px solid #0ea5e9;
-        outline-offset: 2px;
+      button:active, a:active {
+        transition: none !important;
+        transform: scale(0.96) !important;
       }
     </style>
   <script type="importmap">
