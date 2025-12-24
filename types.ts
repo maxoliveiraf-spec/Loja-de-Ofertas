@@ -1,3 +1,4 @@
+
 export enum ProductStatus {
   PENDING = 'PENDING',
   ENRICHING = 'ENRICHING',
@@ -32,6 +33,7 @@ export interface Product {
   authorName?: string;
   authorPhoto?: string;
   authorId?: string;
+  isGestor?: boolean; // Identifica se foi postado pelo administrador
 }
 
 export interface UserProfile {

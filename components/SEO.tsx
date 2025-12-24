@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Product } from '../types';
@@ -11,72 +12,67 @@ export const SEO: React.FC<SEOProps> = ({ products }) => {
   const siteDescription = "Encontre as melhores ofertas e promoções da internet. Smartphones, eletrônicos, moda e muito mais com descontos imperdíveis.";
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://loja-de-ofertas.vercel.app';
   
-  // Sanitização rigorosa para evitar estruturas circulares (Circular Structure)
-  // Garantimos que cada campo seja convertido explicitamente para string primitiva
   const jsonLdString = useMemo(() => {
     try {
-      if (!products || !Array.isArray(products)) return '{}';
+      if (!products || !Array.isArray(products) || products.length === 0) return '';
+
+      // Mapeamento rigoroso para evitar referências circulares ou objetos complexos do React/Firebase
+      const itemListElement = products.slice(0, 15).map((p, index) => {
+        const title = p.title ? String(p.title).substring(0, 100) : "Produto";
+        const description = p.description ? String(p.description).substring(0, 200) : "";
+        const imageUrl = p.imageUrl ? String(p.imageUrl) : "";
+        const url = p.url ? String(p.url) : siteUrl;
+        const priceString = p.estimatedPrice ? String(p.estimatedPrice).replace(/[^0-9,.]/g, '').replace(',', '.') : "0.00";
+        const price = parseFloat(priceString) || 0;
+
+        return {
+          "@type": "ListItem",
+          "position": index + 1,
+          "item": {
+            "@type": "Product",
+            "name": title,
+            "description": description,
+            "image": imageUrl,
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "BRL",
+              "price": price.toFixed(2),
+              "availability": "https://schema.org/InStock",
+              "url": url
+            }
+          }
+        };
+      });
 
       const structuredData = {
         "@context": "https://schema.org",
         "@type": "ItemList",
-        "itemListElement": products.slice(0, 20).map((product, index) => {
-          // Extração segura de preço
-          const rawPrice = String(product.estimatedPrice || "0.00");
-          const sanitizedPrice = rawPrice.replace(/[^0-9,]/g, '').replace(',', '.');
-
-          return {
-            "@type": "ListItem",
-            "position": index + 1,
-            "item": {
-              "@type": "Product",
-              "name": String(product.title || "Produto"),
-              "description": String(product.description || ""),
-              "image": String(product.imageUrl || ""),
-              "offers": {
-                "@type": "Offer",
-                "priceCurrency": "BRL",
-                "price": sanitizedPrice || "0.00",
-                "availability": "https://schema.org/InStock",
-                "url": String(product.url || siteUrl)
-              }
-            }
-          };
-        })
+        "itemListElement": itemListElement
       };
 
       return JSON.stringify(structuredData);
     } catch (e) {
-      console.error("Critical error generating JSON-LD:", e);
-      return '{}';
+      console.error("Erro crítico ao serializar SEO JSON-LD:", e);
+      return '';
     }
   }, [products, siteUrl]);
 
   return (
     <Helmet>
-      {/* Basic Meta Tags */}
       <title>{siteTitle}</title>
       <meta name="description" content={siteDescription} />
       <link rel="canonical" href={siteUrl} />
-
-      {/* Open Graph / Facebook / WhatsApp */}
       <meta property="og:type" content="website" />
-      <meta property="og:url" content={siteUrl} />
       <meta property="og:title" content={siteTitle} />
       <meta property="og:description" content={siteDescription} />
       {products.length > 0 && products[0].imageUrl && (
         <meta property="og:image" content={String(products[0].imageUrl)} />
       )}
-
-      {/* Twitter */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={siteTitle} />
-      <meta name="twitter:description" content={siteDescription} />
-      
-      {/* Structured Data (JSON-LD) */}
-      <script type="application/ld+json">
-        {jsonLdString}
-      </script>
+      {jsonLdString && (
+        <script type="application/ld+json">
+          {jsonLdString}
+        </script>
+      )}
     </Helmet>
   );
 };

@@ -1,5 +1,6 @@
+
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
 import { Product, ProductStatus, BlogPost, UserProfile, Comment } from '../types';
 
 const firebaseConfig = {
@@ -55,49 +56,33 @@ export const productService = {
   }
 };
 
-// Social Features
-export const socialService = {
-  toggleLike: async (productId: string, userId: string, isLiked: boolean) => {
-    if (!db) return;
-    const ref = doc(db, "products", productId);
-    await updateDoc(ref, {
-      likes: isLiked ? arrayRemove(userId) : arrayUnion(userId)
-    });
-  },
-  addComment: async (productId: string, comment: Omit<Comment, 'id'>) => {
-    if (!db) return;
-    await addDoc(collection(db, "products", productId, "comments"), comment);
-    await updateDoc(doc(db, "products", productId), {
-      commentsCount: increment(1)
-    });
-  },
-  subscribeComments: (productId: string, onUpdate: (comments: Comment[]) => void) => {
-    if (!db) return () => {};
-    const q = query(collection(db, "products", productId, "comments"), orderBy("timestamp", "asc"));
+export const commentService = {
+  subscribe: (productId: string, onUpdate: (comments: Comment[]) => void) => {
+    if (!db) { onUpdate([]); return () => {}; }
+    const q = query(
+      collection(db, "comments"), 
+      where("productId", "==", productId),
+      orderBy("timestamp", "desc")
+    );
     return onSnapshot(q, (snapshot) => {
-      onUpdate(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Comment)));
+      const comments = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Comment));
+      onUpdate(comments);
     });
   },
-  toggleSave: async (userId: string, productId: string, isSaved: boolean) => {
+  add: async (productId: string, comment: Omit<Comment, 'id'>) => {
     if (!db) return;
-    const ref = doc(db, "users", userId);
-    try {
-      await updateDoc(ref, {
-        savedProducts: isSaved ? arrayRemove(productId) : arrayUnion(productId)
-      });
-    } catch (e) {
-      await setDoc(ref, { savedProducts: [productId] }, { merge: true });
-    }
-  },
-  getUserProfile: async (userId: string): Promise<UserProfile | null> => {
-    if (!db) return null;
-    const snap = await getDoc(doc(db, "users", userId));
-    return snap.exists() ? snap.data() as UserProfile : null;
+    await addDoc(collection(db, "comments"), { ...comment, productId });
+    // Incrementar contador no produto
+    const productRef = doc(db, "products", productId);
+    await updateDoc(productRef, { commentsCount: increment(1) });
   }
 };
 
 export const blogService = {
-  subscribeToPosts: (onUpdate: (posts: BlogPost[]) => void) => {
+  subscribeToPosts: (onUpdate: (posts: BlogPost[]) => void, onError?: (error: any) => void) => {
     if (!db) { onUpdate([]); return () => {}; }
     const q = query(collection(db, "blog_posts"), orderBy("publishedAt", "desc"));
     return onSnapshot(q, (snapshot) => {
@@ -106,11 +91,38 @@ export const blogService = {
         ...doc.data()
       } as BlogPost));
       onUpdate(posts);
-    });
+    }, onError);
   },
   incrementView: async (id: string) => {
     if (!db) return;
-    await updateDoc(doc(db, "blog_posts", id), { views: increment(1) });
+    const ref = doc(db, "blog_posts", id);
+    await updateDoc(ref, { views: increment(1) });
+  }
+};
+
+export const interestService = {
+  saveEmail: async (email: string, productId: string) => {
+    if (!db) return;
+    await addDoc(collection(db, "interest_list"), {
+      email,
+      productId,
+      timestamp: Date.now()
+    });
+  }
+};
+
+export const socialService = {
+  toggleLike: async (productId: string, userId: string, isLiked: boolean) => {
+    if (!db) return;
+    const ref = doc(db, "products", productId);
+    await updateDoc(ref, {
+      likes: isLiked ? arrayRemove(userId) : arrayUnion(userId)
+    });
+  },
+  getUserProfile: async (userId: string): Promise<UserProfile | null> => {
+    if (!db) return null;
+    const snap = await getDoc(doc(db, "users", userId));
+    return snap.exists() ? snap.data() as UserProfile : null;
   }
 };
 

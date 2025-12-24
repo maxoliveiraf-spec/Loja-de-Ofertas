@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
+import { ProductDetail } from './components/ProductDetail';
 import { TopProductsCarousel } from './components/TopProductsCarousel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SEO } from './components/SEO';
@@ -24,6 +26,8 @@ function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
   const [user, setUser] = useState<UserProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -31,7 +35,6 @@ function App() {
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const authModalGoogleRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
-  const [dbError, setDbError] = useState<string | null>(null);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({ 
@@ -44,6 +47,34 @@ function App() {
   });
 
   const isUserAdmin = user?.email === ADMIN_EMAIL;
+
+  // Lógica de Prioridade Aleatória para Produtos do Gestor
+  const processedProducts = useMemo(() => {
+    if (products.length === 0) return [];
+
+    // Se houver busca, não aplicamos a prioridade aleatória para não confundir o usuário
+    if (searchQuery.trim()) {
+      return products.filter(p => {
+        const query = searchQuery.toLowerCase();
+        return p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
+      });
+    }
+
+    const gestorProducts = products.filter(p => p.isGestor);
+    const otherProducts = products.filter(p => !p.isGestor);
+
+    if (gestorProducts.length === 0) return products;
+
+    // Embaralha produtos do gestor para escolher 2 aleatórios
+    const shuffledGestor = [...gestorProducts].sort(() => 0.5 - Math.random());
+    const priority = shuffledGestor.slice(0, 2);
+    const remainingGestor = shuffledGestor.slice(2);
+
+    // O restante deve ser mantido por ordem de data (mais recentes primeiro)
+    const rest = [...otherProducts, ...remainingGestor].sort((a, b) => b.addedAt - a.addedAt);
+
+    return [...priority, ...rest];
+  }, [products, searchQuery]);
 
   useEffect(() => {
     trackSiteVisit();
@@ -60,8 +91,7 @@ function App() {
         }
         setProducts(updatedProducts);
         isInitialLoad = false;
-      },
-      (error) => setDbError('api_disabled')
+      }
     );
     return () => unsubscribe();
   }, [products.length]);
@@ -69,7 +99,7 @@ function App() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && visibleCount < products.length) {
+        if (entries[0].isIntersecting && visibleCount < processedProducts.length) {
           setVisibleCount(prev => prev + ITEMS_PER_PAGE);
         }
       },
@@ -81,7 +111,7 @@ function App() {
     }
 
     return () => observer.disconnect();
-  }, [products.length, visibleCount]);
+  }, [processedProducts.length, visibleCount]);
 
   useEffect(() => {
     if ((isPostModalOpen || isAnalyticsOpen || isAuthModalOpen) && !user && window.google) {
@@ -151,7 +181,11 @@ function App() {
 
     try {
       if (editingProduct) {
-        await productService.update(editingProduct.id, { ...formData });
+        // Se o gestor editar um produto de outro, ele assume a marcação de Gestor
+        await productService.update(editingProduct.id, { 
+          ...formData, 
+          isGestor: isUserAdmin ? true : editingProduct.isGestor 
+        });
         alert("🎉 Oferta atualizada!");
       } else {
         await productService.add({ 
@@ -160,7 +194,8 @@ function App() {
           addedAt: Date.now(),
           authorName: user.displayName,
           authorPhoto: user.photoURL,
-          authorId: user.uid
+          authorId: user.uid,
+          isGestor: isUserAdmin // Marca se é o gestor postando
         });
         alert("🎉 Oferta publicada!");
       }
@@ -185,16 +220,28 @@ function App() {
     setIsPostModalOpen(true);
   };
 
-  const filteredProducts = products.filter(p => {
-    const query = searchQuery.toLowerCase();
-    return p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
-  });
+  const pagedProducts = processedProducts.slice(0, visibleCount);
 
-  const pagedProducts = filteredProducts.slice(0, visibleCount);
+  if (selectedProduct) {
+    return (
+      <HelmetProvider>
+        <div className="min-h-screen bg-white">
+          <SEO products={[selectedProduct]} />
+          <ProductDetail 
+            product={selectedProduct} 
+            relatedProducts={products.filter(p => p.category === selectedProduct.category)}
+            onBack={() => setSelectedProduct(null)}
+            onSelectProduct={(p) => setSelectedProduct(p)}
+            currentUser={user}
+          />
+        </div>
+      </HelmetProvider>
+    );
+  }
 
   return (
     <HelmetProvider>
-      <div className="min-h-screen bg-white flex flex-col font-sans">
+      <div className="min-h-screen bg-gray-50 flex flex-col font-sans pb-20 sm:pb-0">
         <SEO products={products} />
 
         <Header 
@@ -205,9 +252,9 @@ function App() {
           onSearchChange={(q) => { setSearchQuery(q); setVisibleCount(INITIAL_ITEMS); }}
         />
 
-        <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden">
+        <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden sm:px-4">
             
-            <div className="hidden sm:block mt-6 px-4">
+            <div className="mt-2 sm:mt-6">
               <TopProductsCarousel products={products} />
             </div>
 
@@ -221,30 +268,30 @@ function App() {
               </div>
             )}
 
-            {/* Grid de Feed de Produtos - Espaçamento ajustado sem as categorias */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-2 sm:gap-y-10 max-w-lg sm:max-w-none mx-auto pt-4 sm:pt-8">
+            {/* Grid Mobile Estilo Shopee (2 Colunas) */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-6 pt-2 sm:pt-8 px-2 sm:px-0">
                {pagedProducts.map(p => (
-                 <div key={p.id} className="self-start">
+                 <div key={p.id} className="h-full">
                    <ProductCard 
                      product={p} 
                      currentUser={user} 
                      onAuthRequired={() => setIsAuthModalOpen(true)}
                      onEdit={openEdit}
+                     onSelect={(product) => setSelectedProduct(product)}
                      isAdmin={isUserAdmin}
                    />
                  </div>
                ))}
             </div>
 
-            {/* Scroll Infinito */}
-            {filteredProducts.length > visibleCount && (
+            {processedProducts.length > visibleCount && (
               <div ref={observerTarget} className="w-full py-16 flex flex-col items-center justify-center gap-3">
                  <div className="w-7 h-7 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Buscando novas ofertas</p>
               </div>
             )}
 
-            {filteredProducts.length === 0 && (
+            {processedProducts.length === 0 && (
               <div className="text-center py-24 px-4 animate-fadeIn">
                 <div className="text-5xl mb-4 opacity-20">🔎</div>
                 <p className="text-gray-400 font-bold italic">Nenhuma oferta encontrada...</p>
@@ -254,17 +301,46 @@ function App() {
 
         <Footer onOpenAdmin={() => user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true)} />
 
+        {/* Barra de Navegação Inferior (Mobile Only) */}
+        <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center justify-around h-16 sm:hidden px-4">
+           <button onClick={() => window.scrollTo({top:0, behavior:'smooth'})} className="flex flex-col items-center gap-1 text-brand-600">
+             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+             <span className="text-[10px] font-bold">Início</span>
+           </button>
+           <button onClick={() => document.querySelector('input')?.focus()} className="flex flex-col items-center gap-1 text-gray-400">
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+             <span className="text-[10px] font-bold">Explorar</span>
+           </button>
+           <button 
+             onClick={() => { setEditingProduct(null); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }}
+             className="flex flex-col items-center justify-center -translate-y-4 w-12 h-12 bg-brand-600 text-white rounded-full shadow-lg shadow-brand-200"
+            >
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
+           </button>
+           <button onClick={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Área Administrativa")} className="flex flex-col items-center gap-1 text-gray-400">
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+             <span className="text-[10px] font-bold">Painel</span>
+           </button>
+           <button onClick={() => !user && setIsAuthModalOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
+             {user ? (
+               <img src={user.photoURL} className="w-6 h-6 rounded-full border border-gray-200" alt="" />
+             ) : (
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+             )}
+             <span className="text-[10px] font-bold">Perfil</span>
+           </button>
+        </nav>
+
         <NotificationBell notifications={notifications} onClear={() => setNotifications([])} onMarkRead={() => {}} />
 
-        {/* Modal de Publicação */}
         {isPostModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-slideUp">
+          <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center">
+            <div className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-slideUp">
                <div className="p-6 border-b flex justify-between items-center bg-gray-50/50">
                  <h2 className="font-black text-gray-900 text-lg uppercase tracking-tight">{editingProduct ? 'Editar Oferta' : 'Nova Publicação'}</h2>
                  <button onClick={() => setIsPostModalOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300">✕</button>
                </div>
-               <form onSubmit={handleAddProduct} className="p-8 space-y-5 max-h-[75vh] overflow-y-auto">
+               <form onSubmit={handleAddProduct} className="p-6 sm:p-8 space-y-5 max-h-[80vh] overflow-y-auto pb-10 sm:pb-8">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-gray-400 uppercase ml-1">URL de Afiliado (ML/Amazon)</label>
                     <input required type="url" placeholder="Cole o link aqui..." value={formData.url} onChange={(e) => handleUrlChange(e.target.value)} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500 transition-colors" />
@@ -279,7 +355,7 @@ function App() {
                     </select>
                     <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
                   </div>
-                  <button type="submit" className="w-full bg-[#0284c7] text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                  <button type="submit" className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs">
                     {editingProduct ? 'Salvar Mudanças' : 'Publicar na Loja'}
                   </button>
                </form>
@@ -287,9 +363,8 @@ function App() {
           </div>
         )}
 
-        {/* Modal de Login */}
         {isAuthModalOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-white rounded-[2.5rem] p-10 max-w-xs w-full text-center shadow-2xl animate-slideUp">
               <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-600">
                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
