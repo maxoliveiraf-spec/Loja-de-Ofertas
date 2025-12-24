@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { HelmetProvider } from 'react-helmet-async';
+import { HelmetProvider } from '@dr.pogodin/react-helmet';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { ProductDetail } from './components/ProductDetail';
