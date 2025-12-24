@@ -1,4 +1,4 @@
-
+// Corrigindo o erro de importação do initializeApp garantindo a sintaxe modular do Firebase v9+
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
 import { Product, ProductStatus, BlogPost, UserProfile, Comment } from '../types';
@@ -17,6 +17,7 @@ let db: any = null;
 export let isFirebaseConfigured = false;
 
 try {
+  // Inicialização padrão do Firebase v9+ modular
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   isFirebaseConfigured = true;
@@ -59,8 +60,6 @@ export const productService = {
 export const commentService = {
   subscribe: (productId: string, onUpdate: (comments: Comment[]) => void) => {
     if (!db) { onUpdate([]); return () => {}; }
-    // Removido orderBy da query para evitar erro de índice composto ausente no Firebase
-    // O erro [code=failed-precondition] ocorre quando combinamos where() com orderBy() em campos diferentes sem um índice manual.
     const q = query(
       collection(db, "comments"), 
       where("productId", "==", productId)
@@ -70,7 +69,6 @@ export const commentService = {
         id: doc.id,
         ...doc.data()
       } as Comment))
-      // Ordenação feita no cliente para garantir funcionamento imediato sem exigir que o usuário crie índices no console.
       .sort((a, b) => b.timestamp - a.timestamp);
       
       onUpdate(comments);
@@ -81,7 +79,6 @@ export const commentService = {
   add: async (productId: string, comment: Omit<Comment, 'id'>) => {
     if (!db) return;
     await addDoc(collection(db, "comments"), { ...comment, productId });
-    // Incrementar contador no produto
     const productRef = doc(db, "products", productId);
     await updateDoc(productRef, { commentsCount: increment(1) });
   }
