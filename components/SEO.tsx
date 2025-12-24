@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Helmet } from '@dr.pogodin/react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { Product } from '../types';
 
 interface SEOProps {

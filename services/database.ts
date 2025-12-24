@@ -59,17 +59,23 @@ export const productService = {
 export const commentService = {
   subscribe: (productId: string, onUpdate: (comments: Comment[]) => void) => {
     if (!db) { onUpdate([]); return () => {}; }
+    // Removido orderBy da query para evitar erro de índice composto ausente no Firebase
+    // O erro [code=failed-precondition] ocorre quando combinamos where() com orderBy() em campos diferentes sem um índice manual.
     const q = query(
       collection(db, "comments"), 
-      where("productId", "==", productId),
-      orderBy("timestamp", "desc")
+      where("productId", "==", productId)
     );
     return onSnapshot(q, (snapshot) => {
       const comments = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Comment));
+      } as Comment))
+      // Ordenação feita no cliente para garantir funcionamento imediato sem exigir que o usuário crie índices no console.
+      .sort((a, b) => b.timestamp - a.timestamp);
+      
       onUpdate(comments);
+    }, (error) => {
+      console.error("Erro ao assinar comentários:", error);
     });
   },
   add: async (productId: string, comment: Omit<Comment, 'id'>) => {

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Product, UserProfile, Comment } from '../types';
-import { incrementClick, interestService, commentService } from '../services/database';
+import { incrementClick, interestService, commentService, productService } from '../services/database';
 import { generateMarketingPitch } from '../services/geminiService';
 
 interface ProductDetailProps {
@@ -15,8 +15,8 @@ interface ProductDetailProps {
 export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedProducts, onBack, onSelectProduct, currentUser }) => {
   const [email, setEmail] = useState('');
   const [isSaved, setIsSaved] = useState(false);
-  const [pitch, setPitch] = useState<string>('');
-  const [loadingPitch, setLoadingPitch] = useState(true);
+  const [pitch, setPitch] = useState<string>(product.marketingPitch || '');
+  const [loadingPitch, setLoadingPitch] = useState(!product.marketingPitch);
   
   // States para Comentários
   const [comments, setComments] = useState<Comment[]>([]);
@@ -29,12 +29,29 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    
     const fetchPitch = async () => {
+      // Se já temos o pitch salvo no produto, não chamamos a API do Gemini
+      if (product.marketingPitch) {
+        setPitch(product.marketingPitch);
+        setLoadingPitch(false);
+        return;
+      }
+
       setLoadingPitch(true);
-      const text = await generateMarketingPitch(product.title, product.description);
-      setPitch(text);
-      setLoadingPitch(false);
+      try {
+        const text = await generateMarketingPitch(product.title, product.description);
+        setPitch(text);
+        
+        // Salva o pitch gerado no Firestore para que outros usuários o vejam sem nova geração
+        await productService.update(product.id, { marketingPitch: text });
+      } catch (error) {
+        console.error("Erro ao processar pitch:", error);
+      } finally {
+        setLoadingPitch(false);
+      }
     };
+    
     fetchPitch();
 
     // Subscrever a comentários
@@ -45,7 +62,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
     return () => {
       unsubscribeComments();
     };
-  }, [product.id]);
+  }, [product.id, product.marketingPitch, product.title, product.description]);
 
   // Observer para o Feed Infinito
   useEffect(() => {
@@ -165,13 +182,17 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
 
         {/* Pitch de Vendas IA */}
         <div className="space-y-4">
-           <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Análise do Curador</h3>
+           <div className="flex items-center gap-2 ml-2">
+              <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Análise do Curador</h3>
+              {!loadingPitch && <span className="text-[8px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">Salvo</span>}
+           </div>
            <div className="bg-white border-l-4 border-brand-500 p-6 sm:p-10 rounded-3xl shadow-sm italic text-gray-700 leading-relaxed font-medium">
               {loadingPitch ? (
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                    <div className="w-2 h-2 bg-brand-200 rounded-full animate-bounce"></div>
                    <div className="w-2 h-2 bg-brand-200 rounded-full animate-bounce [animation-delay:0.2s]"></div>
                    <div className="w-2 h-2 bg-brand-200 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                   <span className="ml-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">IA analisando...</span>
                 </div>
               ) : (
                 <p>"{pitch}"</p>
@@ -179,7 +200,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
            </div>
         </div>
 
-        {/* --- NOVO: CAIXA DE LISTA DE INTERESSE (CAPTURA DE EMAIL) --- */}
+        {/* --- CAIXA DE LISTA DE INTERESSE (CAPTURA DE EMAIL) --- */}
         <div className="space-y-4">
            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Salvar esta oferta</h3>
            <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 sm:p-10 rounded-[2.5rem] shadow-xl text-white">
@@ -187,7 +208,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
                 <div className="animate-fadeIn">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-brand-500/20 rounded-full flex items-center justify-center text-brand-400">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z" /></svg>
                     </div>
                     <h4 className="text-lg font-black uppercase tracking-tight">Enviar para meu E-mail</h4>
                   </div>

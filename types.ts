@@ -34,6 +34,7 @@ export interface Product {
   authorPhoto?: string;
   authorId?: string;
   isGestor?: boolean; // Identifica se foi postado pelo administrador
+  marketingPitch?: string; // Cache da análise gerada pela IA
 }
 
 export interface UserProfile {
