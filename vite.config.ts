@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
+    const env = loadEnv(mode, process.cwd(), '');
     return {
       server: {
         port: 3000,
@@ -15,8 +15,8 @@ export default defineConfig(({ mode }) => {
         tailwindcss(),
       ],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || '')
       },
       resolve: {
         alias: {
@@ -24,13 +24,12 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        chunkSizeWarningLimit: 1000,
+        chunkSizeWarningLimit: 1600,
         rollupOptions: {
           output: {
-            manualChunks(id) {
-              if (id.includes('node_modules')) {
-                return 'vendor';
-              }
+            manualChunks: {
+              'react-vendor': ['react', 'react-dom'],
+              'firebase-vendor': ['firebase/app', 'firebase/firestore'],
             }
           }
         }
