@@ -8,48 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            },
-            colors: {
-              brand: {
-                50: '#f0f9ff',
-                100: '#e0f2fe',
-                500: '#0ea5e9',
-                600: '#0284c7',
-                700: '#0369a1',
-                900: '#0c4a6e',
-              }
-            },
-            animation: {
-              marquee: 'marquee 25s linear infinite',
-              fadeIn: 'fadeIn 0.2s ease-out',
-              slideUp: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            },
-            keyframes: {
-              marquee: {
-                '0%': { transform: 'translateX(0)' },
-                '100%': { transform: 'translateX(-50%)' },
-              },
-              fadeIn: {
-                '0%': { opacity: '0' },
-                '100%': { opacity: '1' },
-              },
-              slideUp: {
-                '0%': { transform: 'translateY(20px)', opacity: '0' },
-                '100%': { transform: 'translateY(0)', opacity: '1' },
-              }
-            }
-          }
-        }
-      }
-    </script>
     <style>
       /* Melhorar responsividade de toque globalmente */
       * {
@@ -79,13 +38,12 @@
 
       /* Garantir que botões e links tenham área de toque mínima no mobile */
       button, a, .cursor-pointer {
-        min-height: 48px; /* Aumentado para 48px conforme diretrizes de acessibilidade e toque */
+        min-height: 48px;
         min-width: 48px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        /* Força o feedback visual a ser instantâneo ignorando transições no estado ativo */
       }
       
       button:active, a:active {
@@ -93,21 +51,7 @@
         transform: scale(0.96) !important;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
-    "@dr.pogodin/react-helmet": "https://esm.sh/@dr.pogodin/react-helmet@^3.0.4?external=react,react-dom"
-  }
-}
-</script>
-</head>
+  </head>
   <body class="bg-gray-50 text-gray-900 font-sans antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
