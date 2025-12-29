@@ -18,12 +18,10 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
   const [pitch, setPitch] = useState<string>(product.marketingPitch || '');
   const [loadingPitch, setLoadingPitch] = useState(!product.marketingPitch);
   
-  // States para Comentários
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
-  // States para Feed Infinito Vertical
   const [visibleDiscoverItems, setVisibleDiscoverItems] = useState(6);
   const infiniteRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +29,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
     window.scrollTo(0, 0);
     
     const fetchPitch = async () => {
-      // Se já temos o pitch salvo no produto, não chamamos a API do Gemini
       if (product.marketingPitch) {
         setPitch(product.marketingPitch);
         setLoadingPitch(false);
@@ -42,11 +39,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
       try {
         const text = await generateMarketingPitch(product.title, product.description);
         setPitch(text);
-        
-        // Salva o pitch gerado no Firestore para que outros usuários o vejam sem nova geração
-        await productService.update(product.id, { marketingPitch: text });
+        try {
+          await productService.update(product.id, { marketingPitch: text });
+        } catch (dbError) {}
       } catch (error) {
-        console.error("Erro ao processar pitch:", error);
+        setPitch("Esta é uma oferta incrível selecionada por nossa curadoria!");
       } finally {
         setLoadingPitch(false);
       }
@@ -54,7 +51,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
     
     fetchPitch();
 
-    // Subscrever a comentários
     const unsubscribeComments = commentService.subscribe(product.id, (fetched) => {
       setComments(fetched);
     });
@@ -64,7 +60,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
     };
   }, [product.id, product.marketingPitch, product.title, product.description]);
 
-  // Observer para o Feed Infinito
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -88,12 +83,19 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
     if (!email || !email.includes('@')) return;
     
     try {
-      await interestService.saveEmail(email, product.id);
+      // Salva no Firestore para o Admin ver no Dashboard
+      await interestService.saveEmail(email, product.id, product.title);
       setIsSaved(true);
-      setEmail('');
+      // Não limpamos o e-mail agora para permitir o fallback mailto se ele quiser
     } catch (err) {
       alert("Erro ao salvar interesse.");
     }
+  };
+
+  const handleManualEmailSend = () => {
+    const subject = encodeURIComponent(`🔥 Oferta: ${product.title}`);
+    const body = encodeURIComponent(`Olá! Salvei esta oferta para ver depois:\n\nProduto: ${product.title}\nPreço: ${product.estimatedPrice}\nLink: ${window.location.href}\n\nEnviado via Guia da Promoção.`);
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
   };
 
   const handlePostComment = async (e: React.FormEvent) => {
@@ -111,7 +113,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
       });
       setNewComment('');
     } catch (err) {
-      alert("Erro ao postar comentário.");
+      alert("Erro ao comentar.");
     } finally {
       setIsSubmittingComment(false);
     }
@@ -120,7 +122,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
   const handleShare = () => {
     const shareData = {
       title: product.title,
-      text: `🔥 Oferta Imperdível: ${product.title} por apenas ${product.estimatedPrice || 'preço incrível'}!`,
+      text: `🔥 Oferta Imperdível: ${product.title}!`,
       url: window.location.href
     };
     if (navigator.share) {
@@ -143,7 +145,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
 
   return (
     <div className="min-h-screen bg-white pb-24 animate-fadeIn">
-      {/* Header Fixo de Navegação */}
+      {/* Header Fixo */}
       <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b px-4 h-16 flex items-center justify-between">
         <button onClick={onBack} className="p-2 -ml-2 text-gray-900 active:scale-90 transition-transform">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
@@ -156,7 +158,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
         
-        {/* Card Principal de Produto */}
+        {/* Card Principal */}
         <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col md:flex-row">
           <div className="w-full md:w-1/2 aspect-square bg-white p-8 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50">
             <img src={product.imageUrl} alt={product.title} className="max-w-full max-h-full object-contain" />
@@ -180,12 +182,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
           </div>
         </div>
 
-        {/* Pitch de Vendas IA */}
+        {/* Pitch IA */}
         <div className="space-y-4">
-           <div className="flex items-center gap-2 ml-2">
-              <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Análise do Curador</h3>
-              {!loadingPitch && <span className="text-[8px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">Salvo</span>}
-           </div>
+           <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Análise do Curador</h3>
            <div className="bg-white border-l-4 border-brand-500 p-6 sm:p-10 rounded-3xl shadow-sm italic text-gray-700 leading-relaxed font-medium">
               {loadingPitch ? (
                 <div className="flex gap-2 items-center">
@@ -200,7 +199,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
            </div>
         </div>
 
-        {/* --- CAIXA DE LISTA DE INTERESSE (CAPTURA DE EMAIL) --- */}
+        {/* Captura de Interesse / E-mail */}
         <div className="space-y-4">
            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Salvar esta oferta</h3>
            <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 sm:p-10 rounded-[2.5rem] shadow-xl text-white">
@@ -213,7 +212,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
                     <h4 className="text-lg font-black uppercase tracking-tight">Enviar para meu E-mail</h4>
                   </div>
                   <p className="text-sm text-gray-400 mb-6 font-medium leading-relaxed">
-                    Não pode comprar agora? Envie o link desta oferta para seu e-mail e receba alertas de novas promoções exclusivas da nossa curadoria.
+                    Deixe seu e-mail para registrar interesse. Enviaremos a oferta para você assim que o sistema automático processar.
                   </p>
                   <form onSubmit={handleInterest} className="flex flex-col sm:flex-row gap-3">
                     <input 
@@ -228,7 +227,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
                       type="submit"
                       className="bg-brand-600 hover:bg-brand-500 text-white font-black px-8 py-4 rounded-2xl transition-all active:scale-95 uppercase tracking-widest text-[10px]"
                     >
-                      Enviar Oferta
+                      Registrar Interesse
                     </button>
                   </form>
                 </div>
@@ -237,8 +236,15 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
                   <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                   </div>
-                  <h4 className="text-xl font-black mb-2 uppercase">Link enviado com sucesso!</h4>
-                  <p className="text-sm text-gray-400 font-medium">Verifique sua caixa de entrada. Você também faz parte da nossa lista VIP agora!</p>
+                  <h4 className="text-xl font-black mb-2 uppercase tracking-tight">Interesse Registrado!</h4>
+                  <p className="text-sm text-gray-400 font-medium mb-6">Seu e-mail foi salvo em nossa lista. Se quiser receber agora mesmo, use o botão abaixo:</p>
+                  <button 
+                    onClick={handleManualEmailSend}
+                    className="bg-white text-gray-900 font-black px-8 py-4 rounded-2xl shadow-lg hover:bg-gray-100 active:scale-95 transition-all uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 mx-auto"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                    Abrir no meu Aplicativo de E-mail
+                  </button>
                 </div>
               )}
            </div>
@@ -252,14 +258,13 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
            </div>
         </div>
 
-        {/* --- SEÇÃO DE COMENTÁRIOS --- */}
+        {/* Comentários */}
         <div className="pt-8 space-y-6">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Comentários ({comments.length})</h3>
           </div>
 
           <div className="bg-gray-50 rounded-[2rem] p-6 sm:p-8 space-y-8">
-            {/* Form de Comentário */}
             {currentUser ? (
               <form onSubmit={handlePostComment} className="flex flex-col gap-4">
                 <div className="flex gap-4 items-start">
@@ -287,7 +292,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
               </div>
             )}
 
-            {/* Lista de Comentários */}
             <div className="space-y-6">
               {comments.length === 0 ? (
                 <p className="text-center text-xs text-gray-400 font-bold py-4 uppercase tracking-widest">Seja o primeiro a comentar!</p>
@@ -309,7 +313,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
           </div>
         </div>
 
-        {/* --- FEED VERTICAL INFINITO DE OUTROS PRODUTOS --- */}
+        {/* Feed Explorar */}
         <div className="pt-12 space-y-8">
            <div className="flex items-center justify-between px-2">
               <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Explorar mais descobertas</h3>
@@ -336,7 +340,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
                 </button>
               ))}
 
-              {/* Loader de rolagem infinita */}
               {visibleDiscoverItems < relatedProducts.length && (
                 <div ref={infiniteRef} className="py-10 flex justify-center items-center">
                    <div className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
