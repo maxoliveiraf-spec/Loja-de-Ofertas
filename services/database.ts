@@ -1,18 +1,7 @@
 
-// REGRAS DE SEGURANÇA RECOMENDADAS (Copie para o Console do Firebase > Firestore > Rules):
-// rules_version = '2';
-// service cloud.firestore {
-//   match /databases/{database}/documents {
-//     match /products/{id} { allow read: if true; allow write: if request.auth != null && request.auth.token.email == "maxoliveiraf@gmail.com"; }
-//     match /comments/{id} { allow read: if true; allow create: if request.auth != null; }
-//     match /site_visits/{id} { allow create: if true; }
-//     match /interest_list/{id} { allow create: if true; allow read: if request.auth != null && request.auth.token.email == "maxoliveiraf@gmail.com"; }
-//     match /{document=**} { allow read: if true; allow write: if request.auth != null && request.auth.token.email == "maxoliveiraf@gmail.com"; }
-//   }
-// }
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
+import { getAuth, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
 import { Product, ProductStatus, BlogPost, UserProfile, Comment } from '../types';
 
 const firebaseConfig = {
@@ -26,15 +15,32 @@ const firebaseConfig = {
 };
 
 let db: any = null;
+let auth: any = null;
 export let isFirebaseConfigured = false;
 
 try {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+  auth = getAuth(app);
   isFirebaseConfigured = true;
 } catch (e) {
   console.error("Erro ao inicializar Firebase:", e);
 }
+
+export const authService = {
+  loginWithToken: async (idToken: string) => {
+    if (!auth) return null;
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      return result.user;
+    } catch (e) {
+      console.error("Firebase Authentication failed:", e);
+      throw e;
+    }
+  },
+  getCurrentUser: () => auth?.currentUser || null
+};
 
 export const productService = {
   subscribe: (onUpdate: (products: Product[]) => void, onError?: (error: any) => void) => {
@@ -47,7 +53,7 @@ export const productService = {
       } as Product));
       onUpdate(products);
     }, (error) => {
-      console.warn("Firestore: Erro de permissão ou índice em products.", error);
+      console.warn("Firestore: Erro de permissão em products.", error);
       if (onError) onError(error);
     });
   },
@@ -64,14 +70,17 @@ export const productService = {
     if (!db) return;
     try {
       const ref = doc(db, "products", id);
-      // Limpeza de campos undefined para evitar erro do Firestore
+      // Remove campos que não devem ser enviados para o updateDoc
+      const { id: _, ...updateData } = product as any;
+      
       const cleanData = Object.fromEntries(
-        Object.entries(product).filter(([_, v]) => v !== undefined)
+        Object.entries(updateData).filter(([_, v]) => v !== undefined)
       );
+      
       await updateDoc(ref, cleanData);
-      console.log(`Produto ${id} atualizado com sucesso.`);
+      console.log(`Produto ${id} atualizado.`);
     } catch (error) {
-      console.error("Erro ao atualizar produto no Firestore:", error);
+      console.error("Falha ao atualizar produto. Verifique se você está logado como gestor autorizado.", error);
       throw error;
     }
   },
@@ -97,59 +106,41 @@ export const blogService = {
       } as BlogPost));
       onUpdate(posts);
     }, (error) => {
-      console.warn("Firestore: Erro em blog_posts.", error);
+      console.warn("Firestore Blog: Erro de permissão.");
     });
   },
   incrementView: async (postId: string) => {
     if (!db) return;
     try {
       await updateDoc(doc(db, "blog_posts", postId), { views: increment(1) });
-    } catch (e) {
-      console.debug("Erro ao incrementar views do blog");
-    }
+    } catch (e) {}
   }
 };
 
 export const commentService = {
   subscribe: (productId: string, onUpdate: (comments: Comment[]) => void) => {
     if (!db) { onUpdate([]); return () => {}; }
-    const q = query(
-      collection(db, "comments"), 
-      where("productId", "==", productId)
-    );
+    const q = query(collection(db, "comments"), where("productId", "==", productId));
     return onSnapshot(q, (snapshot) => {
       const comments = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Comment))
-      .sort((a, b) => b.timestamp - a.timestamp);
-      
+      } as Comment)).sort((a, b) => b.timestamp - a.timestamp);
       onUpdate(comments);
-    }, (error) => {
-      console.warn("Firestore: Erro em comments.", error);
-    });
+    }, (error) => {});
   },
   add: async (productId: string, comment: Omit<Comment, 'id'>) => {
     if (!db) return;
     await addDoc(collection(db, "comments"), { ...comment, productId });
     const productRef = doc(db, "products", productId);
-    try {
-      await updateDoc(productRef, { commentsCount: increment(1) });
-    } catch (e) {
-      console.debug("Erro ao atualizar contador");
-    }
+    try { await updateDoc(productRef, { commentsCount: increment(1) }); } catch (e) {}
   }
 };
 
 export const interestService = {
   saveEmail: async (email: string, productId: string, productTitle: string) => {
     if (!db) return;
-    await addDoc(collection(db, "interest_list"), {
-      email,
-      productId,
-      productTitle,
-      timestamp: Date.now()
-    });
+    await addDoc(collection(db, "interest_list"), { email, productId, productTitle, timestamp: Date.now() });
   },
   getLeads: async () => {
     if (!db) return [];
@@ -164,40 +155,26 @@ export const socialService = {
     if (!db) return;
     const ref = doc(db, "products", productId);
     try {
-      await updateDoc(ref, {
-        likes: isLiked ? arrayRemove(userId) : arrayUnion(userId)
-      });
-    } catch (e) {
-      console.warn("Erro ao curtir");
-    }
+      await updateDoc(ref, { likes: isLiked ? arrayRemove(userId) : arrayUnion(userId) });
+    } catch (e) {}
   },
   getUserProfile: async (userId: string): Promise<UserProfile | null> => {
     if (!db) return null;
     try {
       const snap = await getDoc(doc(db, "users", userId));
       return snap.exists() ? snap.data() as UserProfile : null;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }
 };
 
 export const incrementClick = async (productId: string) => {
   if (!db) return;
-  try {
-    await updateDoc(doc(db, "products", productId), { clicks: increment(1) });
-  } catch (e) {
-    console.debug("Erro ao incrementar clique");
-  }
+  try { await updateDoc(doc(db, "products", productId), { clicks: increment(1) }); } catch (e) {}
 };
 
 export const trackSiteVisit = async () => {
   if (!db) return;
-  try {
-    await addDoc(collection(db, "site_visits"), { timestamp: Date.now(), date: new Date().toISOString() });
-  } catch (e) {
-    console.debug("Erro ao trackear visita");
-  }
+  try { await addDoc(collection(db, "site_visits"), { timestamp: Date.now(), date: new Date().toISOString() }); } catch (e) {}
 };
 
 export const getSiteStats = async () => {
@@ -206,17 +183,13 @@ export const getSiteStats = async () => {
     const q = query(collection(db, "site_visits"), limit(1000));
     const snapshot = await getDocs(q);
     return snapshot.size;
-  } catch (e) {
-    return 0;
-  }
+  } catch (e) { return 0; }
 };
 
 export const trackNotificationSent = async () => {
   if (!db) return;
   const statsRef = doc(db, "stats", "global");
-  try { 
-    await updateDoc(statsRef, { notificationsSent: increment(1) }); 
-  } catch (e) { 
+  try { await updateDoc(statsRef, { notificationsSent: increment(1) }); } catch (e) { 
     try { await setDoc(statsRef, { notificationsSent: 1 }, { merge: true }); } catch (err) {}
   }
 };
@@ -226,7 +199,5 @@ export const getNotificationStats = async () => {
   try {
     const docSnap = await getDoc(doc(db, "stats", "global"));
     return docSnap.exists() ? docSnap.data().notificationsSent || 0 : 0;
-  } catch (e) {
-    return 0;
-  }
+  } catch (e) { return 0; }
 };

@@ -8,7 +8,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SEO } from './components/SEO';
 import { NotificationBell, NotificationItem } from './components/NotificationBell';
 import { Product, ProductStatus, UserProfile } from './types';
-import { productService, trackSiteVisit, trackNotificationSent, socialService } from './services/database';
+import { productService, trackSiteVisit, trackNotificationSent, socialService, authService } from './services/database';
 import { enrichProductData } from './services/geminiService';
 import { Footer } from './components/Footer';
 
@@ -24,6 +24,7 @@ function App() {
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
@@ -123,22 +124,30 @@ function App() {
   }, [isPostModalOpen, isAnalyticsOpen, isAuthModalOpen, user]);
 
   const handleGoogleCallback = async (response: any) => {
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    const payload = JSON.parse(jsonPayload);
+    try {
+      // Importante: Autentica no Firebase para satisfazer as regras de segurança do Firestore
+      await authService.loginWithToken(response.credential);
+      
+      const base64Url = response.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      const payload = JSON.parse(jsonPayload);
 
-    const newUser: UserProfile = {
-      uid: payload.sub,
-      displayName: payload.name,
-      email: payload.email,
-      photoURL: payload.picture,
-      savedProducts: []
-    };
+      const newUser: UserProfile = {
+        uid: payload.sub,
+        displayName: payload.name,
+        email: payload.email,
+        photoURL: payload.picture,
+        savedProducts: []
+      };
 
-    const dbProfile = await socialService.getUserProfile(newUser.uid);
-    setUser({ ...newUser, ...dbProfile });
-    setIsAuthModalOpen(false);
+      const dbProfile = await socialService.getUserProfile(newUser.uid);
+      setUser({ ...newUser, ...dbProfile });
+      setIsAuthModalOpen(false);
+    } catch (err) {
+      console.error("Authentication error:", err);
+      alert("Falha ao autenticar com o Google. Tente novamente.");
+    }
   };
 
   const triggerNotification = (data: any) => {
@@ -174,6 +183,7 @@ function App() {
       return;
     }
 
+    setIsSaving(true);
     try {
       if (editingProduct) {
         await productService.update(editingProduct.id, { 
@@ -195,8 +205,10 @@ function App() {
       }
       closePostModal();
     } catch (err) {
-      alert("Houve um erro ao salvar as alterações. Verifique sua conexão ou permissões.");
+      alert("Erro ao salvar: Verifique se você está logado com o e-mail do Gestor (" + ADMIN_EMAIL + ") e se a conexão está estável.");
       console.error(err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -296,6 +308,7 @@ function App() {
 
       <Footer onOpenAdmin={() => user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true)} />
 
+      {/* Nav Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center justify-around h-16 sm:hidden px-4">
          <button onClick={() => window.scrollTo({top:0, behavior:'smooth'})} className="flex flex-col items-center gap-1 text-brand-600">
            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
@@ -369,8 +382,12 @@ function App() {
                     <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
                   </div>
                 </div>
-                <button type="submit" className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs mt-4">
-                  {editingProduct ? 'Salvar Mudanças' : 'Publicar na Loja'}
+                <button 
+                  disabled={isSaving}
+                  type="submit" 
+                  className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs mt-4 disabled:opacity-50"
+                >
+                  {isSaving ? 'Salvando...' : (editingProduct ? 'Salvar Mudanças' : 'Publicar na Loja')}
                 </button>
              </form>
           </div>

@@ -56,12 +56,10 @@
       * {
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
-        /* Evita seleção de texto acidental ao clicar rápido */
         -webkit-user-select: none;
         user-select: none;
       }
       
-      /* Permitir seleção apenas em inputs e textareas */
       input, textarea {
         -webkit-user-select: text;
         user-select: text;
@@ -78,15 +76,13 @@
         animation-play-state: paused;
       }
 
-      /* Garantir que botões e links tenham área de toque mínima no mobile */
       button, a, .cursor-pointer {
-        min-height: 48px; /* Aumentado para 48px conforme diretrizes de acessibilidade e toque */
+        min-height: 48px;
         min-width: 48px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        /* Força o feedback visual a ser instantâneo ignorando transições no estado ativo */
       }
       
       button:active, a:active {
@@ -103,6 +99,7 @@
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "firebase/app": "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js",
     "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js",
     "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
   }
 }
