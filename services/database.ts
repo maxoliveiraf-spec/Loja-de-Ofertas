@@ -62,16 +62,30 @@ export const productService = {
   },
   update: async (id: string, product: Partial<Product>) => {
     if (!db) return;
-    const ref = doc(db, "products", id);
-    await updateDoc(ref, product);
+    try {
+      const ref = doc(db, "products", id);
+      // Limpeza de campos undefined para evitar erro do Firestore
+      const cleanData = Object.fromEntries(
+        Object.entries(product).filter(([_, v]) => v !== undefined)
+      );
+      await updateDoc(ref, cleanData);
+      console.log(`Produto ${id} atualizado com sucesso.`);
+    } catch (error) {
+      console.error("Erro ao atualizar produto no Firestore:", error);
+      throw error;
+    }
   },
   delete: async (id: string) => {
     if (!db) return;
-    await deleteDoc(doc(db, "products", id));
+    try {
+      await deleteDoc(doc(db, "products", id));
+    } catch (error) {
+      console.error("Erro ao deletar produto:", error);
+      throw error;
+    }
   }
 };
 
-// Fix: Adicionado blogService para gerenciar posts do blog e contagem de visualizações
 export const blogService = {
   subscribeToPosts: (onUpdate: (posts: BlogPost[]) => void) => {
     if (!db) { onUpdate([]); return () => {}; }

@@ -47,7 +47,6 @@ function App() {
 
   const isUserAdmin = user?.email === ADMIN_EMAIL;
 
-  // Lógica de Prioridade Aleatória para Produtos do Gestor
   const processedProducts = useMemo(() => {
     if (products.length === 0) return [];
 
@@ -181,7 +180,7 @@ function App() {
           ...formData, 
           isGestor: isUserAdmin ? true : editingProduct.isGestor 
         });
-        alert("🎉 Oferta atualizada!");
+        alert("🎉 Oferta atualizada com sucesso!");
       } else {
         await productService.add({ 
           ...formData, 
@@ -194,11 +193,10 @@ function App() {
         });
         alert("🎉 Oferta publicada!");
       }
-      setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', description: '' });
-      setEditingProduct(null);
-      setIsPostModalOpen(false);
+      closePostModal();
     } catch (err) {
-      alert("Erro ao salvar.");
+      alert("Houve um erro ao salvar as alterações. Verifique sua conexão ou permissões.");
+      console.error(err);
     }
   };
 
@@ -213,6 +211,12 @@ function App() {
       description: product.description || ''
     });
     setIsPostModalOpen(true);
+  };
+
+  const closePostModal = () => {
+    setIsPostModalOpen(false);
+    setEditingProduct(null);
+    setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', description: '' });
   };
 
   const pagedProducts = processedProducts.slice(0, visibleCount);
@@ -327,8 +331,13 @@ function App() {
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center">
           <div className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-slideUp">
              <div className="p-6 border-b flex justify-between items-center bg-gray-50/50">
-               <h2 className="font-black text-gray-900 text-lg uppercase tracking-tight">{editingProduct ? 'Editar Oferta' : 'Nova Publicação'}</h2>
-               <button onClick={() => setIsPostModalOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300">✕</button>
+               <div className="flex flex-col">
+                  <h2 className="font-black text-gray-900 text-lg uppercase tracking-tight">
+                    {editingProduct ? 'Editar Oferta' : 'Nova Publicação'}
+                  </h2>
+                  {editingProduct && <span className="text-[9px] font-bold text-brand-600 uppercase tracking-widest">Modo de Edição Ativo</span>}
+               </div>
+               <button onClick={closePostModal} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300">✕</button>
              </div>
              <form onSubmit={handleAddProduct} className="p-6 sm:p-8 space-y-5 max-h-[80vh] overflow-y-auto pb-10 sm:pb-8">
                 <div className="space-y-1.5">
@@ -336,16 +345,31 @@ function App() {
                   <input required type="url" placeholder="Cole o link aqui..." value={formData.url} onChange={(e) => handleUrlChange(e.target.value)} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500 transition-colors" />
                   {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse font-bold ml-1">IA está analisando o produto...</p>}
                 </div>
-                <input required placeholder="Nome do Produto" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
-                <input required placeholder="Preço (ex: R$ 199,90)" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
-                <textarea placeholder="Pequena descrição ou destaque..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm min-h-[120px] focus:border-brand-500" />
-                <div className="grid grid-cols-1 gap-4">
-                  <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm bg-white focus:border-brand-500">
-                     <option>Geral</option><option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option><option>Games</option><option>Cozinha</option>
-                  </select>
-                  <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Nome do Produto</label>
+                  <input required placeholder="Ex: iPhone 15 Pro Max 256GB" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
                 </div>
-                <button type="submit" className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Preço</label>
+                  <input required placeholder="Ex: R$ 7.499,00" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Descrição</label>
+                  <textarea placeholder="Pequena descrição ou destaque..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm min-h-[120px] focus:border-brand-500" />
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Categoria</label>
+                    <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm bg-white focus:border-brand-500">
+                       <option>Geral</option><option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option><option>Games</option><option>Cozinha</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">URL da Imagem</label>
+                    <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
+                  </div>
+                </div>
+                <button type="submit" className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs mt-4">
                   {editingProduct ? 'Salvar Mudanças' : 'Publicar na Loja'}
                 </button>
              </form>
