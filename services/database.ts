@@ -24,18 +24,25 @@ try {
   auth = getAuth(app);
   isFirebaseConfigured = true;
 } catch (e) {
-  console.error("Erro ao inicializar Firebase:", e);
+  console.error("Erro fatal ao inicializar Firebase:", e);
 }
 
 export const authService = {
   loginWithToken: async (idToken: string) => {
-    if (!auth) return null;
+    if (!auth) {
+      console.error("Firebase Auth não foi inicializado corretamente.");
+      return null;
+    }
     try {
       const credential = GoogleAuthProvider.credential(idToken);
       const result = await signInWithCredential(auth, credential);
       return result.user;
-    } catch (e) {
-      console.error("Firebase Authentication failed:", e);
+    } catch (e: any) {
+      console.error("Firebase Authentication Error Details:", {
+        code: e.code,
+        message: e.message,
+        email: e.customData?.email
+      });
       throw e;
     }
   },
@@ -70,17 +77,14 @@ export const productService = {
     if (!db) return;
     try {
       const ref = doc(db, "products", id);
-      // Remove campos que não devem ser enviados para o updateDoc
       const { id: _, ...updateData } = product as any;
-      
       const cleanData = Object.fromEntries(
         Object.entries(updateData).filter(([_, v]) => v !== undefined)
       );
-      
       await updateDoc(ref, cleanData);
       console.log(`Produto ${id} atualizado.`);
     } catch (error) {
-      console.error("Falha ao atualizar produto. Verifique se você está logado como gestor autorizado.", error);
+      console.error("Falha ao atualizar produto. Você precisa estar autenticado como gestor.", error);
       throw error;
     }
   },

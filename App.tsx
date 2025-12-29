@@ -125,7 +125,7 @@ function App() {
 
   const handleGoogleCallback = async (response: any) => {
     try {
-      // Importante: Autentica no Firebase para satisfazer as regras de segurança do Firestore
+      // Tenta autenticar no Firebase
       await authService.loginWithToken(response.credential);
       
       const base64Url = response.credential.split('.')[1];
@@ -144,9 +144,18 @@ function App() {
       const dbProfile = await socialService.getUserProfile(newUser.uid);
       setUser({ ...newUser, ...dbProfile });
       setIsAuthModalOpen(false);
-    } catch (err) {
-      console.error("Authentication error:", err);
-      alert("Falha ao autenticar com o Google. Tente novamente.");
+      console.log("Login realizado com sucesso:", newUser.email);
+    } catch (err: any) {
+      console.error("Google Auth Callback Error:", err);
+      // Fallback: Tenta pelo menos carregar o perfil do payload se o Firebase Auth falhar temporariamente
+      try {
+        const payload = JSON.parse(decodeURIComponent(window.atob(response.credential.split('.')[1]).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+        setUser({ uid: payload.sub, displayName: payload.name, email: payload.email, photoURL: payload.picture });
+        setIsAuthModalOpen(false);
+        alert("Aviso: Login no banco de dados falhou, mas perfil carregado. Você pode não conseguir postar ofertas.");
+      } catch (fallbackErr) {
+        alert("Erro crítico ao autenticar: " + (err.code || "Erro desconhecido"));
+      }
     }
   };
 
@@ -204,8 +213,11 @@ function App() {
         alert("🎉 Oferta publicada!");
       }
       closePostModal();
-    } catch (err) {
-      alert("Erro ao salvar: Verifique se você está logado com o e-mail do Gestor (" + ADMIN_EMAIL + ") e se a conexão está estável.");
+    } catch (err: any) {
+      const msg = err.code === 'permission-denied' 
+        ? "Acesso Negado: Apenas o gestor oficial pode salvar alterações." 
+        : "Erro ao salvar: Verifique sua conexão e se você é o gestor autorizado.";
+      alert(msg);
       console.error(err);
     } finally {
       setIsSaving(false);
@@ -261,7 +273,6 @@ function App() {
       />
 
       <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden sm:px-4">
-          
           <div className="mt-2 sm:mt-6">
             <TopProductsCarousel products={products} />
           </div>
