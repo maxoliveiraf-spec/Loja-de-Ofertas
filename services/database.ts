@@ -23,19 +23,27 @@ try {
   db = getFirestore(app);
   auth = getAuth(app);
   isFirebaseConfigured = true;
+  
+  // Log de diagnóstico para ajudar o usuário com Domínios Autorizados
+  console.log("--- DIAGNÓSTICO FIREBASE ---");
+  console.log("Se o login falhar, adicione este domínio no Firebase Console (Authentication > Settings > Authorized domains):");
+  console.log(window.location.hostname);
+  console.log("----------------------------");
 } catch (e) {
-  console.error("Erro fatal ao inicializar Firebase:", e);
+  console.error("Firebase Init Error:", e);
 }
 
 export const authService = {
   loginWithToken: async (idToken: string) => {
-    if (!auth) return null;
+    if (!auth) throw new Error("Firebase Auth not initialized");
     try {
       const credential = GoogleAuthProvider.credential(idToken);
       const result = await signInWithCredential(auth, credential);
-      return result.user; // Retorna o usuário do Firebase (com UID correto)
+      return result.user;
     } catch (e: any) {
-      console.error("Firebase Login Error:", e.code);
+      if (e.code === 'auth/configuration-not-found') {
+        console.error("ERRO: O Provedor Google não está ativado OU o domínio atual não está autorizado.");
+      }
       throw e;
     }
   },
@@ -60,49 +68,34 @@ export const productService = {
       } as Product));
       onUpdate(products);
     }, (error) => {
-      console.warn("Firestore: Erro de leitura.", error);
+      console.warn("Firestore Read Error:", error);
       if (onError) onError(error);
     });
   },
   add: async (product: Omit<Product, 'id'>) => {
     if (!db) return;
-    try {
-      await addDoc(collection(db, "products"), { 
-        ...product, 
-        clicks: 0, 
-        likes: [], 
-        commentsCount: 0 
-      });
-    } catch (error: any) {
-      console.error("Erro ao publicar:", error.code);
-      throw error;
-    }
+    return await addDoc(collection(db, "products"), { 
+      ...product, 
+      clicks: 0, 
+      likes: [], 
+      commentsCount: 0 
+    });
   },
   update: async (id: string, product: Partial<Product>) => {
     if (!db) return;
-    try {
-      const ref = doc(db, "products", id);
-      const { id: _, ...updateData } = product as any;
-      const cleanData = Object.fromEntries(
-        Object.entries(updateData).filter(([_, v]) => v !== undefined)
-      );
-      await updateDoc(ref, cleanData);
-    } catch (error: any) {
-      console.error("Erro ao atualizar:", error.code);
-      throw error;
-    }
+    const ref = doc(db, "products", id);
+    const { id: _, ...updateData } = product as any;
+    const cleanData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, v]) => v !== undefined)
+    );
+    return await updateDoc(ref, cleanData);
   },
   delete: async (id: string) => {
     if (!db) return;
-    try {
-      await deleteDoc(doc(db, "products", id));
-    } catch (error) {
-      throw error;
-    }
+    return await deleteDoc(doc(db, "products", id));
   }
 };
 
-// ... restante dos serviços (blog, comment, etc) permanecem iguais ...
 export const blogService = {
   subscribeToPosts: (onUpdate: (posts: BlogPost[]) => void) => {
     if (!db) { onUpdate([]); return () => {}; }
