@@ -46,51 +46,45 @@ function App() {
     description: '' 
   });
 
-  const isUserAdmin = user?.email === ADMIN_EMAIL;
+  // O e-mail do admin deve ser verificado de forma insensível a maiúsculas/minúsculas
+  const isUserAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
+  // Fix: Declare processedProducts before it is used in hooks (like the IntersectionObserver useEffect below)
   const processedProducts = useMemo(() => {
     if (products.length === 0) return [];
-
     if (searchQuery.trim()) {
-      return products.filter(p => {
-        const query = searchQuery.toLowerCase();
-        return p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
-      });
+      return products.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
     }
-
-    const gestorProducts = products.filter(p => p.isGestor);
-    const otherProducts = products.filter(p => !p.isGestor);
-
-    if (gestorProducts.length === 0) return products;
-
-    const shuffledGestor = [...gestorProducts].sort(() => 0.5 - Math.random());
-    const priority = shuffledGestor.slice(0, 2);
-    const remainingGestor = shuffledGestor.slice(2);
-
-    const rest = [...otherProducts, ...remainingGestor].sort((a, b) => b.addedAt - a.addedAt);
-
-    return [...priority, ...rest];
+    return [...products].sort((a, b) => b.addedAt - a.addedAt);
   }, [products, searchQuery]);
 
   useEffect(() => {
     trackSiteVisit();
-    let isInitialLoad = true;
-    const unsubscribe = productService.subscribe(
-      (updatedProducts) => {
-        if (!isInitialLoad && updatedProducts.length > products.length) {
-          triggerNotification({
-             title: 'Nova Oferta! 🎉',
-             message: `Acabou de chegar: ${updatedProducts[0].title}`,
-             url: updatedProducts[0].url,
-             imageUrl: updatedProducts[0].imageUrl
-          });
-        }
+    const unsubscribe = productService.subscribe((updatedProducts) => {
         setProducts(updatedProducts);
-        isInitialLoad = false;
+    });
+
+    // Escuta mudanças de autenticação do Firebase diretamente
+    const unsubAuth = authService.onAuthChange(async (fbUser) => {
+      if (fbUser) {
+        const dbProfile = await socialService.getUserProfile(fbUser.uid);
+        setUser({
+          uid: fbUser.uid,
+          displayName: fbUser.displayName || 'Usuário',
+          email: fbUser.email || '',
+          photoURL: fbUser.photoURL || '',
+          savedProducts: dbProfile?.savedProducts || []
+        });
+      } else {
+        setUser(null);
       }
-    );
-    return () => unsubscribe();
-  }, [products.length]);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubAuth();
+    };
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -101,11 +95,7 @@ function App() {
       },
       { threshold: 0.1 }
     );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
+    if (observerTarget.current) observer.observe(observerTarget.current);
     return () => observer.disconnect();
   }, [processedProducts.length, visibleCount]);
 
@@ -115,7 +105,6 @@ function App() {
         client_id: GOOGLE_CLIENT_ID,
         callback: handleGoogleCallback
       });
-      
       const target = isAuthModalOpen ? authModalGoogleRef : googleButtonRef;
       if (target.current) {
         window.google.accounts.id.renderButton(target.current, { theme: "outline", size: "large", width: 250 });
@@ -125,63 +114,22 @@ function App() {
 
   const handleGoogleCallback = async (response: any) => {
     try {
-      // Tenta autenticar no Firebase
-      await authService.loginWithToken(response.credential);
-      
-      const base64Url = response.credential.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-      const payload = JSON.parse(jsonPayload);
-
-      const newUser: UserProfile = {
-        uid: payload.sub,
-        displayName: payload.name,
-        email: payload.email,
-        photoURL: payload.picture,
-        savedProducts: []
-      };
-
-      const dbProfile = await socialService.getUserProfile(newUser.uid);
-      setUser({ ...newUser, ...dbProfile });
-      setIsAuthModalOpen(false);
-      console.log("Login realizado com sucesso:", newUser.email);
-    } catch (err: any) {
-      console.error("Google Auth Callback Error:", err);
-      // Fallback: Tenta pelo menos carregar o perfil do payload se o Firebase Auth falhar temporariamente
-      try {
-        const payload = JSON.parse(decodeURIComponent(window.atob(response.credential.split('.')[1]).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-        setUser({ uid: payload.sub, displayName: payload.name, email: payload.email, photoURL: payload.picture });
+      // Autentica no Firebase e recebe o usuário oficial
+      const fbUser = await authService.loginWithToken(response.credential);
+      if (fbUser) {
+        console.log("Autenticado via Firebase:", fbUser.email);
         setIsAuthModalOpen(false);
-        alert("Aviso: Login no banco de dados falhou, mas perfil carregado. Você pode não conseguir postar ofertas.");
-      } catch (fallbackErr) {
-        alert("Erro crítico ao autenticar: " + (err.code || "Erro desconhecido"));
       }
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      alert("Falha crítica no login do banco de dados: " + (err.code || "Erro desconhecido"));
     }
   };
 
-  const triggerNotification = (data: any) => {
-     setNotifications(prev => [{ id: Date.now().toString(), ...data, timestamp: Date.now(), read: false }, ...prev]);
-     trackNotificationSent();
-  };
-
-  const handleUrlChange = async (url: string) => {
-    setFormData(prev => ({ ...prev, url }));
-    if (!editingProduct && (url.includes('mercadolivre') || url.includes('amazon')) && !formData.title) {
-      setIsEnriching(true);
-      try {
-        const enriched = await enrichProductData(url);
-        setFormData(prev => ({
-          ...prev,
-          title: enriched.title || prev.title,
-          description: enriched.description || prev.description,
-          category: enriched.category || prev.category,
-          estimatedPrice: enriched.estimatedPrice || prev.estimatedPrice
-        }));
-      } catch (e) {
-        console.error("Enrichment failed", e);
-      } finally {
-        setIsEnriching(false);
-      }
+  const handleLogout = async () => {
+    if (window.confirm("Deseja sair da sua conta?")) {
+      await authService.logout();
+      setUser(null);
     }
   };
 
@@ -197,9 +145,9 @@ function App() {
       if (editingProduct) {
         await productService.update(editingProduct.id, { 
           ...formData, 
-          isGestor: isUserAdmin ? true : editingProduct.isGestor 
+          isGestor: isUserAdmin 
         });
-        alert("🎉 Oferta atualizada com sucesso!");
+        alert("🎉 Oferta atualizada!");
       } else {
         await productService.add({ 
           ...formData, 
@@ -207,20 +155,32 @@ function App() {
           addedAt: Date.now(),
           authorName: user.displayName,
           authorPhoto: user.photoURL,
-          authorId: user.uid,
+          authorId: user.uid, // O UID agora é o real do Firebase
           isGestor: isUserAdmin 
         });
         alert("🎉 Oferta publicada!");
       }
       closePostModal();
     } catch (err: any) {
-      const msg = err.code === 'permission-denied' 
-        ? "Acesso Negado: Apenas o gestor oficial pode salvar alterações." 
-        : "Erro ao salvar: Verifique sua conexão e se você é o gestor autorizado.";
-      alert(msg);
-      console.error(err);
+      console.error("Save Error:", err);
+      if (err.code === 'permission-denied') {
+        alert("❌ ERRO DE PERMISSÃO: O Firebase recusou a gravação. Certifique-se de que você configurou as 'Rules' no Console do Firebase conforme as instruções.");
+      } else {
+        alert("Ocorreu um erro ao salvar: " + err.message);
+      }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUrlChange = async (url: string) => {
+    setFormData(prev => ({ ...prev, url }));
+    if (!editingProduct && (url.includes('mercadolivre') || url.includes('amazon')) && !formData.title) {
+      setIsEnriching(true);
+      try {
+        const enriched = await enrichProductData(url);
+        setFormData(prev => ({ ...prev, ...enriched }));
+      } catch (e) {} finally { setIsEnriching(false); }
     }
   };
 
@@ -266,14 +226,26 @@ function App() {
 
       <Header 
         onOpenAdmin={() => { setEditingProduct(null); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }}
-        onOpenAnalytics={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito.")}
+        onOpenAnalytics={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Acesso restrito ao Administrador.")}
         totalProducts={products.length}
         searchQuery={searchQuery}
         onSearchChange={(q) => { setSearchQuery(q); setVisibleCount(INITIAL_ITEMS); }}
       />
 
       <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden sm:px-4">
-          <div className="mt-2 sm:mt-6">
+          {user && (
+            <div className="px-4 py-2 bg-brand-50 flex justify-between items-center border-b border-brand-100 sm:rounded-b-2xl mb-4 animate-fadeIn">
+               <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isUserAdmin ? 'bg-green-500' : 'bg-brand-500'}`}></div>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                    Logado como: <span className="text-gray-900">{user.email}</span> {isUserAdmin && "(GESTOR)"}
+                  </span>
+               </div>
+               <button onClick={handleLogout} className="text-[10px] font-black text-red-500 uppercase tracking-widest">Sair</button>
+            </div>
+          )}
+
+          <div className="mt-2">
             <TopProductsCarousel products={products} />
           </div>
 
@@ -305,14 +277,7 @@ function App() {
           {processedProducts.length > visibleCount && (
             <div ref={observerTarget} className="w-full py-16 flex flex-col items-center justify-center gap-3">
                <div className="w-7 h-7 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
-               <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Buscando novas ofertas</p>
-            </div>
-          )}
-
-          {processedProducts.length === 0 && (
-            <div className="text-center py-24 px-4 animate-fadeIn">
-              <div className="text-5xl mb-4 opacity-20">🔎</div>
-              <p className="text-gray-400 font-bold italic">Nenhuma oferta encontrada...</p>
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Carregando...</p>
             </div>
           )}
       </main>
@@ -325,27 +290,16 @@ function App() {
            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
            <span className="text-[10px] font-bold">Início</span>
          </button>
-         <button onClick={() => document.querySelector('input')?.focus()} className="flex flex-col items-center gap-1 text-gray-400">
-           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-           <span className="text-[10px] font-bold">Explorar</span>
-         </button>
-         <button 
-           onClick={() => { setEditingProduct(null); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }}
-           className="flex flex-col items-center justify-center -translate-y-4 w-12 h-12 bg-brand-600 text-white rounded-full shadow-lg shadow-brand-200"
-          >
+         <button onClick={() => { setEditingProduct(null); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }} className="flex flex-col items-center justify-center -translate-y-4 w-12 h-12 bg-brand-600 text-white rounded-full shadow-lg">
            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
          </button>
-         <button onClick={() => isUserAdmin ? setIsAnalyticsOpen(true) : alert("Área Administrativa")} className="flex flex-col items-center gap-1 text-gray-400">
-           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-           <span className="text-[10px] font-bold">Painel</span>
-         </button>
-         <button onClick={() => !user && setIsAuthModalOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
+         <button onClick={() => !user ? setIsAuthModalOpen(true) : handleLogout()} className="flex flex-col items-center gap-1 text-gray-400">
            {user ? (
              <img src={user.photoURL} className="w-6 h-6 rounded-full border border-gray-200" alt="" />
            ) : (
              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
            )}
-           <span className="text-[10px] font-bold">Perfil</span>
+           <span className="text-[10px] font-bold">{user ? 'Sair' : 'Perfil'}</span>
          </button>
       </nav>
 
@@ -359,46 +313,19 @@ function App() {
                   <h2 className="font-black text-gray-900 text-lg uppercase tracking-tight">
                     {editingProduct ? 'Editar Oferta' : 'Nova Publicação'}
                   </h2>
-                  {editingProduct && <span className="text-[9px] font-bold text-brand-600 uppercase tracking-widest">Modo de Edição Ativo</span>}
+                  {editingProduct && <span className="text-[9px] font-bold text-brand-600 uppercase tracking-widest">Modo Edição Gestor</span>}
                </div>
-               <button onClick={closePostModal} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300">✕</button>
+               <button onClick={closePostModal} className="p-2 bg-gray-200 rounded-full text-gray-500">✕</button>
              </div>
              <form onSubmit={handleAddProduct} className="p-6 sm:p-8 space-y-5 max-h-[80vh] overflow-y-auto pb-10 sm:pb-8">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">URL de Afiliado (ML/Amazon)</label>
-                  <input required type="url" placeholder="Cole o link aqui..." value={formData.url} onChange={(e) => handleUrlChange(e.target.value)} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500 transition-colors" />
-                  {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse font-bold ml-1">IA está analisando o produto...</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Nome do Produto</label>
-                  <input required placeholder="Ex: iPhone 15 Pro Max 256GB" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Preço</label>
-                  <input required placeholder="Ex: R$ 7.499,00" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Descrição</label>
-                  <textarea placeholder="Pequena descrição ou destaque..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm min-h-[120px] focus:border-brand-500" />
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Categoria</label>
-                    <select value={formData.category} onChange={(e)=>setFormData({...formData, category: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm bg-white focus:border-brand-500">
-                       <option>Geral</option><option>Eletrônicos</option><option>Moda</option><option>Casa</option><option>Beleza</option><option>Games</option><option>Cozinha</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">URL da Imagem</label>
-                    <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
-                  </div>
-                </div>
-                <button 
-                  disabled={isSaving}
-                  type="submit" 
-                  className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-brand-200 active:scale-95 transition-all uppercase tracking-widest text-xs mt-4 disabled:opacity-50"
-                >
-                  {isSaving ? 'Salvando...' : (editingProduct ? 'Salvar Mudanças' : 'Publicar na Loja')}
+                <input required type="url" placeholder="Link de Afiliado..." value={formData.url} onChange={(e) => handleUrlChange(e.target.value)} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm focus:border-brand-500" />
+                {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse font-bold">IA Analisando...</p>}
+                <input required placeholder="Título do Produto" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
+                <input required placeholder="Preço (ex: R$ 99,90)" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
+                <textarea placeholder="Descrição curta..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm min-h-[100px]" />
+                <input required type="url" placeholder="URL da Imagem" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
+                <button disabled={isSaving} type="submit" className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs disabled:opacity-50">
+                  {isSaving ? 'Salvando...' : (editingProduct ? 'Salvar Mudanças' : 'Publicar Agora')}
                 </button>
              </form>
           </div>
@@ -408,13 +335,10 @@ function App() {
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-white rounded-[2.5rem] p-10 max-w-xs w-full text-center shadow-2xl animate-slideUp">
-            <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-600">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-            </div>
-            <h3 className="text-2xl font-black mb-3 text-gray-900 tracking-tight">Postar Oferta</h3>
-            <p className="text-[12px] text-gray-500 mb-10 px-2 leading-relaxed font-medium">Apenas curadores autorizados podem postar novas ofertas. Entre com sua conta para continuar.</p>
+            <h3 className="text-2xl font-black mb-3 text-gray-900">Entrar no Painel</h3>
+            <p className="text-[12px] text-gray-500 mb-10">Use sua conta autorizada para gerenciar a loja.</p>
             <div ref={authModalGoogleRef} className="flex justify-center mb-8"></div>
-            <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em] p-2 hover:text-gray-600 transition-colors">Voltar</button>
+            <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-black uppercase">Voltar</button>
           </div>
         </div>
       )}

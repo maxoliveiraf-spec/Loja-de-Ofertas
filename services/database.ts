@@ -1,7 +1,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc, increment, setDoc, getDocs, limit, getDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
-import { getAuth, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, signInWithCredential, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { Product, ProductStatus, BlogPost, UserProfile, Comment } from '../types';
 
 const firebaseConfig = {
@@ -29,22 +29,22 @@ try {
 
 export const authService = {
   loginWithToken: async (idToken: string) => {
-    if (!auth) {
-      console.error("Firebase Auth não foi inicializado corretamente.");
-      return null;
-    }
+    if (!auth) return null;
     try {
       const credential = GoogleAuthProvider.credential(idToken);
       const result = await signInWithCredential(auth, credential);
-      return result.user;
+      return result.user; // Retorna o usuário do Firebase (com UID correto)
     } catch (e: any) {
-      console.error("Firebase Authentication Error Details:", {
-        code: e.code,
-        message: e.message,
-        email: e.customData?.email
-      });
+      console.error("Firebase Login Error:", e.code);
       throw e;
     }
+  },
+  logout: async () => {
+    if (auth) await signOut(auth);
+  },
+  onAuthChange: (callback: (user: any) => void) => {
+    if (!auth) return () => {};
+    return onAuthStateChanged(auth, callback);
   },
   getCurrentUser: () => auth?.currentUser || null
 };
@@ -60,18 +60,23 @@ export const productService = {
       } as Product));
       onUpdate(products);
     }, (error) => {
-      console.warn("Firestore: Erro de permissão em products.", error);
+      console.warn("Firestore: Erro de leitura.", error);
       if (onError) onError(error);
     });
   },
   add: async (product: Omit<Product, 'id'>) => {
     if (!db) return;
-    await addDoc(collection(db, "products"), { 
-      ...product, 
-      clicks: 0, 
-      likes: [], 
-      commentsCount: 0 
-    });
+    try {
+      await addDoc(collection(db, "products"), { 
+        ...product, 
+        clicks: 0, 
+        likes: [], 
+        commentsCount: 0 
+      });
+    } catch (error: any) {
+      console.error("Erro ao publicar:", error.code);
+      throw error;
+    }
   },
   update: async (id: string, product: Partial<Product>) => {
     if (!db) return;
@@ -82,9 +87,8 @@ export const productService = {
         Object.entries(updateData).filter(([_, v]) => v !== undefined)
       );
       await updateDoc(ref, cleanData);
-      console.log(`Produto ${id} atualizado.`);
-    } catch (error) {
-      console.error("Falha ao atualizar produto. Você precisa estar autenticado como gestor.", error);
+    } catch (error: any) {
+      console.error("Erro ao atualizar:", error.code);
       throw error;
     }
   },
@@ -93,12 +97,12 @@ export const productService = {
     try {
       await deleteDoc(doc(db, "products", id));
     } catch (error) {
-      console.error("Erro ao deletar produto:", error);
       throw error;
     }
   }
 };
 
+// ... restante dos serviços (blog, comment, etc) permanecem iguais ...
 export const blogService = {
   subscribeToPosts: (onUpdate: (posts: BlogPost[]) => void) => {
     if (!db) { onUpdate([]); return () => {}; }
@@ -109,15 +113,11 @@ export const blogService = {
         ...doc.data()
       } as BlogPost));
       onUpdate(posts);
-    }, (error) => {
-      console.warn("Firestore Blog: Erro de permissão.");
-    });
+    }, (error) => {});
   },
   incrementView: async (postId: string) => {
     if (!db) return;
-    try {
-      await updateDoc(doc(db, "blog_posts", postId), { views: increment(1) });
-    } catch (e) {}
+    try { await updateDoc(doc(db, "blog_posts", postId), { views: increment(1) }); } catch (e) {}
   }
 };
 
