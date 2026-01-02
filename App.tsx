@@ -195,7 +195,9 @@ function App() {
         <SEO products={[selectedProduct]} />
         <ProductDetail 
           product={selectedProduct} 
-          relatedProducts={products.filter(p => p.category === selectedProduct.category)}
+          // Passamos a lista completa para o componente de detalhe 
+          // filtrar de forma mais inteligente (mesma categoria primeiro, depois outros)
+          relatedProducts={products} 
           onBack={() => setSelectedProduct(null)}
           onSelectProduct={(p) => setSelectedProduct(p)}
           currentUser={user}

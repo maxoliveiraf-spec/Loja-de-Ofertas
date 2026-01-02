@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, UserProfile, Comment } from '../types';
 import { incrementClick, interestService, commentService, productService } from '../services/database';
 import { generateMarketingPitch } from '../services/geminiService';
@@ -24,6 +24,21 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
 
   const [visibleDiscoverItems, setVisibleDiscoverItems] = useState(6);
   const infiniteRef = useRef<HTMLDivElement>(null);
+
+  // Lógica inteligente para preencher o feed de descobertas
+  // Prioriza produtos da mesma categoria, depois outros, excluindo o atual.
+  const discoveryList = useMemo(() => {
+    const others = relatedProducts.filter(p => p.id !== product.id);
+    return others.sort((a, b) => {
+      // Mesma categoria sobe no ranking
+      const aIsSame = a.category === product.category;
+      const bIsSame = b.category === product.category;
+      if (aIsSame && !bIsSame) return -1;
+      if (!aIsSame && bIsSame) return 1;
+      // Secundariamente por data (mais recentes primeiro)
+      return b.addedAt - a.addedAt;
+    });
+  }, [relatedProducts, product]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -63,7 +78,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && visibleDiscoverItems < relatedProducts.length) {
+        if (entries[0].isIntersecting && visibleDiscoverItems < discoveryList.length) {
           setVisibleDiscoverItems(prev => prev + 6);
         }
       },
@@ -71,7 +86,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
     );
     if (infiniteRef.current) observer.observe(infiniteRef.current);
     return () => observer.disconnect();
-  }, [relatedProducts.length, visibleDiscoverItems]);
+  }, [discoveryList.length, visibleDiscoverItems]);
 
   const handleBuy = () => {
     incrementClick(product.id);
@@ -83,10 +98,8 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
     if (!email || !email.includes('@')) return;
     
     try {
-      // Salva no Firestore para o Admin ver no Dashboard
       await interestService.saveEmail(email, product.id, product.title);
       setIsSaved(true);
-      // Não limpamos o e-mail agora para permitir o fallback mailto se ele quiser
     } catch (err) {
       alert("Erro ao salvar interesse.");
     }
@@ -199,7 +212,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
            </div>
         </div>
 
-        {/* Captura de Interesse / E-mail */}
+        {/* Captura de Interesse */}
         <div className="space-y-4">
            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Salvar esta oferta</h3>
            <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 sm:p-10 rounded-[2.5rem] shadow-xl text-white">
@@ -313,40 +326,42 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
           </div>
         </div>
 
-        {/* Feed Explorar */}
-        <div className="pt-12 space-y-8">
-           <div className="flex items-center justify-between px-2">
-              <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Explorar mais descobertas</h3>
-           </div>
+        {/* Feed Explorar - Agora sempre populado */}
+        {discoveryList.length > 0 && (
+          <div className="pt-12 space-y-8">
+             <div className="flex items-center justify-between px-2">
+                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Explorar mais descobertas</h3>
+             </div>
 
-           <div className="flex flex-col gap-4">
-              {relatedProducts.filter(p => p.id !== product.id).slice(0, visibleDiscoverItems).map(p => (
-                <button 
-                  key={p.id} 
-                  onClick={() => onSelectProduct(p)}
-                  className="flex items-center gap-4 bg-white border border-gray-100 p-4 rounded-3xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all text-left w-full group"
-                >
-                   <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">
-                      <img src={p.imageUrl} alt={p.title} className="max-w-full max-h-full object-contain group-hover:scale-110 transition-transform" />
-                   </div>
-                   <div className="flex-1 min-w-0 pr-4">
-                      <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">{p.category}</p>
-                      <h4 className="text-sm font-black text-gray-900 line-clamp-1 uppercase tracking-tight mb-2">{p.title}</h4>
-                      <div className="flex items-center justify-between">
-                         <span className="text-sm font-black text-brand-600">{p.estimatedPrice}</span>
-                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest group-hover:text-brand-600 transition-colors">Ver Agora →</span>
-                      </div>
-                   </div>
-                </button>
-              ))}
+             <div className="flex flex-col gap-4">
+                {discoveryList.slice(0, visibleDiscoverItems).map(p => (
+                  <button 
+                    key={p.id} 
+                    onClick={() => onSelectProduct(p)}
+                    className="flex items-center gap-4 bg-white border border-gray-100 p-4 rounded-3xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all text-left w-full group"
+                  >
+                     <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">
+                        <img src={p.imageUrl} alt={p.title} className="max-w-full max-h-full object-contain group-hover:scale-110 transition-transform" />
+                     </div>
+                     <div className="flex-1 min-w-0 pr-4">
+                        <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">{p.category}</p>
+                        <h4 className="text-sm font-black text-gray-900 line-clamp-1 uppercase tracking-tight mb-2">{p.title}</h4>
+                        <div className="flex items-center justify-between">
+                           <span className="text-sm font-black text-brand-600">{p.estimatedPrice}</span>
+                           <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest group-hover:text-brand-600 transition-colors">Ver Agora →</span>
+                        </div>
+                     </div>
+                  </button>
+                ))}
 
-              {visibleDiscoverItems < relatedProducts.length && (
-                <div ref={infiniteRef} className="py-10 flex justify-center items-center">
-                   <div className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
-                </div>
-              )}
-           </div>
-        </div>
+                {visibleDiscoverItems < discoveryList.length && (
+                  <div ref={infiniteRef} className="py-10 flex justify-center items-center">
+                     <div className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+                  </div>
+                )}
+             </div>
+          </div>
+        )}
 
       </div>
     </div>
