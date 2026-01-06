@@ -42,7 +42,8 @@ function App() {
     estimatedPrice: '', 
     category: 'Geral', 
     imageUrl: '', 
-    description: '' 
+    description: '',
+    isFeatured: false
   });
 
   const isUserAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
@@ -54,6 +55,13 @@ function App() {
     }
     return [...products].sort((a, b) => b.addedAt - a.addedAt);
   }, [products, searchQuery]);
+
+  // Encontra o produto em destaque (ou o mais recente se nenhum estiver marcado)
+  const featuredProduct = useMemo(() => {
+    if (products.length === 0) return null;
+    const explicitlyFeatured = products.find(p => p.isFeatured);
+    return explicitlyFeatured || processedProducts[0];
+  }, [products, processedProducts]);
 
   useEffect(() => {
     trackSiteVisit();
@@ -133,6 +141,9 @@ function App() {
     if (!user) { setIsAuthModalOpen(true); return; }
     setIsSaving(true);
     try {
+      // Se este produto está sendo marcado como destaque, desmarcar todos os outros (opcional, ou manter múltiplos)
+      // Aqui vamos manter simples: o sistema pega o primeiro que encontrar com a flag true.
+
       if (editingProduct) {
         await productService.update(editingProduct.id, { ...formData, isGestor: isUserAdmin });
         alert("🎉 Oferta atualizada!");
@@ -176,7 +187,8 @@ function App() {
       estimatedPrice: product.estimatedPrice || '',
       category: product.category,
       imageUrl: product.imageUrl || '',
-      description: product.description || ''
+      description: product.description || '',
+      isFeatured: product.isFeatured || false
     });
     setIsPostModalOpen(true);
   };
@@ -184,7 +196,7 @@ function App() {
   const closePostModal = () => {
     setIsPostModalOpen(false);
     setEditingProduct(null);
-    setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', description: '' });
+    setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', description: '', isFeatured: false });
   };
 
   const pagedProducts = processedProducts.slice(0, visibleCount);
@@ -195,8 +207,6 @@ function App() {
         <SEO products={[selectedProduct]} />
         <ProductDetail 
           product={selectedProduct} 
-          // Passamos a lista completa para o componente de detalhe 
-          // filtrar de forma mais inteligente (mesma categoria primeiro, depois outros)
           relatedProducts={products} 
           onBack={() => setSelectedProduct(null)}
           onSelectProduct={(p) => setSelectedProduct(p)}
@@ -228,7 +238,47 @@ function App() {
                <button onClick={handleLogout} className="text-[10px] font-black text-red-500 uppercase tracking-widest">Sair</button>
             </div>
           )}
+          
           <div className="mt-2"><TopProductsCarousel products={products} /></div>
+
+          {/* SEÇÃO: PRODUTO EM DESTAQUE (VITRINE HERO) */}
+          {!searchQuery && featuredProduct && (
+            <section className="px-2 sm:px-0 mb-8 animate-fadeIn">
+              <div 
+                onClick={() => setSelectedProduct(featuredProduct)}
+                className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
+              >
+                <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-white p-8 sm:p-12 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50 overflow-hidden">
+                  <img 
+                    src={featuredProduct.imageUrl} 
+                    alt={featuredProduct.title} 
+                    className="max-w-full max-h-[400px] object-contain group-hover:scale-105 transition-transform duration-700" 
+                  />
+                </div>
+                <div className="w-full md:w-1/2 p-8 sm:p-12 md:p-16 flex flex-col justify-center">
+                  <div className="inline-flex items-center gap-2 bg-brand-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 w-fit shadow-lg shadow-brand-200">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                    Oferta em Destaque
+                  </div>
+                  <h2 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight tracking-tight uppercase mb-4">
+                    {featuredProduct.title}
+                  </h2>
+                  <p className="text-gray-500 text-sm sm:text-base leading-relaxed mb-8 line-clamp-3 font-medium">
+                    {featuredProduct.marketingPitch || featuredProduct.description}
+                  </p>
+                  <div className="flex items-center gap-6 mb-8">
+                    <div className="text-4xl font-black text-gray-900">{featuredProduct.estimatedPrice}</div>
+                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest border-l border-gray-200 pl-4">Melhor Preço<br/>Encontrado</div>
+                  </div>
+                  <button className="w-full bg-brand-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-brand-100 group-hover:bg-brand-700 transition-all flex items-center justify-center gap-4 uppercase tracking-widest text-sm">
+                    Ver Detalhes da Oferta
+                    <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
           {isAnalyticsOpen && isUserAdmin && (
             <div className="m-4 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
               <div className="flex justify-between items-center mb-6">
@@ -238,13 +288,18 @@ function App() {
               <AnalyticsDashboard products={products} />
             </div>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-6 pt-2 sm:pt-8 px-2 sm:px-0">
-             {pagedProducts.map(p => (
-               <div key={p.id} className="h-full">
-                 <ProductCard product={p} currentUser={user} onAuthRequired={() => setIsAuthModalOpen(true)} onEdit={openEdit} onSelect={(product) => setSelectedProduct(product)} isAdmin={isUserAdmin} />
-               </div>
-             ))}
+          
+          <div className="px-2 sm:px-0">
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 ml-2">Explorar Outras Ofertas</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-6">
+              {pagedProducts.map(p => (
+                <div key={p.id} className="h-full">
+                  <ProductCard product={p} currentUser={user} onAuthRequired={() => setIsAuthModalOpen(true)} onEdit={openEdit} onSelect={(product) => setSelectedProduct(product)} isAdmin={isUserAdmin} />
+                </div>
+              ))}
+            </div>
           </div>
+          
           {processedProducts.length > visibleCount && (
             <div ref={observerTarget} className="w-full py-16 flex flex-col items-center justify-center gap-3">
                <div className="w-7 h-7 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
@@ -278,6 +333,23 @@ function App() {
                 {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse font-bold">IA Analisando Link...</p>}
                 <input required placeholder="Título do Produto" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
                 <input required placeholder="Preço (R$ 0,00)" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
+                
+                {/* CHECKBOX PARA DESTAQUE */}
+                {isUserAdmin && (
+                  <label className="flex items-center gap-3 p-4 bg-brand-50 rounded-2xl border-2 border-brand-100 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.isFeatured} 
+                      onChange={(e) => setFormData({...formData, isFeatured: e.target.checked})}
+                      className="w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500" 
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-black text-brand-900 uppercase">Destaque na Vitrine</span>
+                      <span className="text-[10px] text-brand-700 font-bold">Aparecerá com foto grande no topo da página.</span>
+                    </div>
+                  </label>
+                )}
+
                 <textarea placeholder="Pequena descrição ou destaques..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm min-h-[100px]" />
                 <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
                 <button disabled={isSaving} type="submit" className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest disabled:opacity-50 active:scale-95 transition-all">

@@ -34,6 +34,7 @@ export interface Product {
   authorPhoto?: string;
   authorId?: string;
   isGestor?: boolean; // Identifica se foi postado pelo administrador
+  isFeatured?: boolean; // Identifica se o produto é o destaque da vitrine
   marketingPitch?: string; // Cache da análise gerada pela IA
 }
 
