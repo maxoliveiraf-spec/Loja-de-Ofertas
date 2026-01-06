@@ -141,9 +141,6 @@ function App() {
     if (!user) { setIsAuthModalOpen(true); return; }
     setIsSaving(true);
     try {
-      // Se este produto está sendo marcado como destaque, desmarcar todos os outros (opcional, ou manter múltiplos)
-      // Aqui vamos manter simples: o sistema pega o primeiro que encontrar com a flag true.
-
       if (editingProduct) {
         await productService.update(editingProduct.id, { ...formData, isGestor: isUserAdmin });
         alert("🎉 Oferta atualizada!");
@@ -248,6 +245,7 @@ function App() {
                 onClick={() => setSelectedProduct(featuredProduct)}
                 className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
               >
+                {/* Imagem Clicável */}
                 <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-white p-8 sm:p-12 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50 overflow-hidden">
                   <img 
                     src={featuredProduct.imageUrl} 
@@ -255,6 +253,8 @@ function App() {
                     className="max-w-full max-h-[400px] object-contain group-hover:scale-105 transition-transform duration-700" 
                   />
                 </div>
+                
+                {/* Copy e Informações */}
                 <div className="w-full md:w-1/2 p-8 sm:p-12 md:p-16 flex flex-col justify-center">
                   <div className="inline-flex items-center gap-2 bg-brand-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 w-fit shadow-lg shadow-brand-200">
                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -263,17 +263,27 @@ function App() {
                   <h2 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight tracking-tight uppercase mb-4">
                     {featuredProduct.title}
                   </h2>
-                  <p className="text-gray-500 text-sm sm:text-base leading-relaxed mb-8 line-clamp-3 font-medium">
+                  <p className="text-gray-500 text-sm sm:text-base leading-relaxed mb-8 line-clamp-3 md:line-clamp-none font-medium">
                     {featuredProduct.marketingPitch || featuredProduct.description}
                   </p>
-                  <div className="flex items-center gap-6 mb-8">
+                  
+                  {/* Preço: Visível apenas no Desktop */}
+                  <div className="hidden md:flex items-center gap-6 mb-8">
                     <div className="text-4xl font-black text-gray-900">{featuredProduct.estimatedPrice}</div>
                     <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest border-l border-gray-200 pl-4">Melhor Preço<br/>Encontrado</div>
                   </div>
-                  <button className="w-full bg-brand-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-brand-100 group-hover:bg-brand-700 transition-all flex items-center justify-center gap-4 uppercase tracking-widest text-sm">
+                  
+                  {/* Botão: Visível apenas no Desktop */}
+                  <button className="hidden md:flex w-full bg-brand-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-brand-100 group-hover:bg-brand-700 transition-all items-center justify-center gap-4 uppercase tracking-widest text-sm">
                     Ver Detalhes da Oferta
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </button>
+
+                  {/* Feedback Visual para Mobile (opcional, para indicar que é clicável) */}
+                  <div className="md:hidden mt-4 text-[10px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-2">
+                    Clique para ver mais detalhes
+                    <svg className="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                  </div>
                 </div>
               </div>
             </section>
@@ -334,7 +344,6 @@ function App() {
                 <input required placeholder="Título do Produto" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
                 <input required placeholder="Preço (R$ 0,00)" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
                 
-                {/* CHECKBOX PARA DESTAQUE */}
                 {isUserAdmin && (
                   <label className="flex items-center gap-3 p-4 bg-brand-50 rounded-2xl border-2 border-brand-100 cursor-pointer">
                     <input 
