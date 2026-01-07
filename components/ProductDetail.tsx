@@ -25,17 +25,13 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
   const [visibleDiscoverItems, setVisibleDiscoverItems] = useState(6);
   const infiniteRef = useRef<HTMLDivElement>(null);
 
-  // Lógica inteligente para preencher o feed de descobertas
-  // Prioriza produtos da mesma categoria, depois outros, excluindo o atual.
   const discoveryList = useMemo(() => {
     const others = relatedProducts.filter(p => p.id !== product.id);
     return others.sort((a, b) => {
-      // Mesma categoria sobe no ranking
       const aIsSame = a.category === product.category;
       const bIsSame = b.category === product.category;
       if (aIsSame && !bIsSame) return -1;
       if (!aIsSame && bIsSame) return 1;
-      // Secundariamente por data (mais recentes primeiro)
       return b.addedAt - a.addedAt;
     });
   }, [relatedProducts, product]);
@@ -90,7 +86,13 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
 
   const handleBuy = () => {
     incrementClick(product.id);
-    window.open(product.url, '_blank', 'noopener,noreferrer');
+    
+    // Dispara a conversão do Google Ads antes do redirecionamento
+    if (typeof window.gtag_report_conversion === 'function') {
+      window.gtag_report_conversion(product.url);
+    } else {
+      window.open(product.url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handleInterest = async (e: React.FormEvent) => {
@@ -158,7 +160,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
 
   return (
     <div className="min-h-screen bg-white pb-24 animate-fadeIn">
-      {/* Header Fixo */}
       <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b px-4 h-16 flex items-center justify-between">
         <button onClick={onBack} className="p-2 -ml-2 text-gray-900 active:scale-90 transition-transform">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
@@ -170,8 +171,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
-        
-        {/* Card Principal */}
         <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col md:flex-row">
           <div className="w-full md:w-1/2 aspect-square bg-white p-8 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50">
             <img src={product.imageUrl} alt={product.title} className="max-w-full max-h-full object-contain" />
@@ -195,7 +194,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
           </div>
         </div>
 
-        {/* Pitch IA */}
         <div className="space-y-4">
            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Análise do Curador</h3>
            <div className="bg-white border-l-4 border-brand-500 p-6 sm:p-10 rounded-3xl shadow-sm italic text-gray-700 leading-relaxed font-medium">
@@ -212,7 +210,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
            </div>
         </div>
 
-        {/* Captura de Interesse */}
         <div className="space-y-4">
            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Salvar esta oferta</h3>
            <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 sm:p-10 rounded-[2.5rem] shadow-xl text-white">
@@ -263,7 +260,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
            </div>
         </div>
 
-        {/* Detalhes Técnicos */}
         <div className="space-y-4 pt-4">
            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Mais informações</h3>
            <div className="bg-gray-50 p-6 sm:p-10 rounded-3xl text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
@@ -271,7 +267,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
            </div>
         </div>
 
-        {/* Comentários */}
         <div className="pt-8 space-y-6">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Comentários ({comments.length})</h3>
@@ -326,7 +321,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
           </div>
         </div>
 
-        {/* Feed Explorar - Agora sempre populado */}
         {discoveryList.length > 0 && (
           <div className="pt-12 space-y-8">
              <div className="flex items-center justify-between px-2">
@@ -362,7 +356,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
              </div>
           </div>
         )}
-
       </div>
     </div>
   );

@@ -10,6 +10,23 @@
 
       gtag('config', 'AW-776575305');
     </script>
+    
+    <!-- Event snippet for Cliques no botão conversion page -->
+    <script>
+    function gtag_report_conversion(url) {
+      var callback = function () {
+        if (typeof(url) != 'undefined') {
+          window.location = url;
+        }
+      };
+      gtag('event', 'conversion', {
+          'send_to': 'AW-776575305/suXWCP_PwJUDEMmypvIC',
+          'event_callback': callback
+      });
+      return false;
+    }
+    </script>
+
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
     <title>Guia da Promoção - Loja de Ofertas</title>

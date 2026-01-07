@@ -60,6 +60,7 @@ export interface BlogPost {
 
 declare global {
   interface Window {
+    gtag_report_conversion: (url?: string) => boolean;
     google: {
       accounts: {
         id: {
@@ -70,5 +71,6 @@ declare global {
         };
       };
     };
+    dataLayer: any[];
   }
 }
