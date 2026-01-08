@@ -236,11 +236,9 @@ function App() {
             </div>
           )}
           
-          <div className="mt-2"><TopProductsCarousel products={products} /></div>
-
-          {/* SEÇÃO: PRODUTO EM DESTAQUE (VITRINE HERO) */}
+          {/* SEÇÃO: PRODUTO EM DESTAQUE (VITRINE HERO) - AGORA NO TOPO */}
           {!searchQuery && featuredProduct && (
-            <section className="px-2 sm:px-0 mb-8 animate-fadeIn">
+            <section className="px-2 sm:px-0 mb-6 animate-fadeIn mt-4">
               <div 
                 onClick={() => setSelectedProduct(featuredProduct)}
                 className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
@@ -279,7 +277,7 @@ function App() {
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </button>
 
-                  {/* Feedback Visual para Mobile (opcional, para indicar que é clicável) */}
+                  {/* Feedback Visual para Mobile */}
                   <div className="md:hidden mt-4 text-[10px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-2">
                     Clique para ver mais detalhes
                     <svg className="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
@@ -288,6 +286,9 @@ function App() {
               </div>
             </section>
           )}
+
+          {/* CARROSSEL - AGORA ABAIXO DO DESTAQUE */}
+          <div className="mb-8"><TopProductsCarousel products={products} /></div>
 
           {isAnalyticsOpen && isUserAdmin && (
             <div className="m-4 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
