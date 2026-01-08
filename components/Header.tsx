@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface HeaderProps {
@@ -8,13 +9,18 @@ interface HeaderProps {
   onSearchChange: (query: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, onOpenAnalytics, searchQuery, onSearchChange }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  onOpenAdmin, 
+  onOpenAnalytics, 
+  totalProducts, 
+  searchQuery, 
+  onSearchChange 
+}) => {
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16 gap-4">
           
-          {/* Logo - Agora com feedback de toque */}
           <div 
             className="flex items-center gap-2 flex-shrink-0 cursor-pointer active:scale-95 transition-transform duration-75" 
             onClick={() => window.scrollTo({top:0, behavior:'smooth'})}
@@ -25,7 +31,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, onOpenAnalytics, se
             <h1 className="hidden sm:block text-lg font-black text-gray-900 tracking-tight">GUIA PROMO</h1>
           </div>
 
-          {/* Search */}
           <div className="flex-1 max-w-xl">
             <div className="relative">
               <input
@@ -33,12 +38,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAdmin, onOpenAnalytics, se
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full bg-gray-100 border-none rounded-full py-2 px-4 text-sm focus:ring-2 focus:ring-brand-500 transition-shadow outline-none"
-                placeholder="Pesquisar ofertas..."
+                placeholder={`Pesquisar entre ${totalProducts} ofertas...`}
               />
             </div>
           </div>
           
-          {/* Menu */}
           <div className="flex items-center gap-3">
              <button 
               onClick={onOpenAdmin} 

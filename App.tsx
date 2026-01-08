@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { ProductDetail } from './components/ProductDetail';
@@ -8,7 +8,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SEO } from './components/SEO';
 import { NotificationBell, NotificationItem } from './components/NotificationBell';
 import { Product, ProductStatus, UserProfile } from './types';
-import { productService, trackSiteVisit, trackNotificationSent, socialService, authService } from './services/database';
+import { productService, trackSiteVisit, socialService, authService } from './services/database';
 import { enrichProductData } from './services/geminiService';
 import { Footer } from './components/Footer';
 
@@ -16,6 +16,22 @@ const GOOGLE_CLIENT_ID = "14302060436-3nsfssbbrs3fgrphslk1g9nncura8nnb.apps.goog
 const ADMIN_EMAIL = "maxoliveiraf@gmail.com";
 const INITIAL_ITEMS = 12;
 const ITEMS_PER_PAGE = 8;
+
+const GoogleSignInButton = ({ onCallback }: { onCallback: (resp: any) => void }) => {
+  const btnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (window.google && btnRef.current) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: onCallback
+      });
+      window.google.accounts.id.renderButton(btnRef.current, { theme: "outline", size: "large", width: 250 });
+    }
+  }, [onCallback]);
+
+  return <div ref={btnRef} className="flex justify-center"></div>;
+};
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -31,8 +47,6 @@ function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   
-  const googleButtonRef = useRef<HTMLDivElement>(null);
-  const authModalGoogleRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -46,17 +60,17 @@ function App() {
     isFeatured: false
   });
 
-  const isUserAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isUserAdmin = useMemo(() => user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase(), [user]);
 
   const processedProducts = useMemo(() => {
     if (products.length === 0) return [];
+    let filtered = products;
     if (searchQuery.trim()) {
-      return products.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
+      filtered = products.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
     }
-    return [...products].sort((a, b) => b.addedAt - a.addedAt);
+    return [...filtered].sort((a, b) => b.addedAt - a.addedAt);
   }, [products, searchQuery]);
 
-  // Encontra o produto em destaque (ou o mais recente se nenhum estiver marcado)
   const featuredProduct = useMemo(() => {
     if (products.length === 0) return null;
     const explicitlyFeatured = products.find(p => p.isFeatured);
@@ -88,6 +102,9 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const currentTarget = observerTarget.current;
+    if (!currentTarget) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && visibleCount < processedProducts.length) {
@@ -96,24 +113,11 @@ function App() {
       },
       { threshold: 0.1 }
     );
-    if (observerTarget.current) observer.observe(observerTarget.current);
+    observer.observe(currentTarget);
     return () => observer.disconnect();
   }, [processedProducts.length, visibleCount]);
 
-  useEffect(() => {
-    if ((isPostModalOpen || isAnalyticsOpen || isAuthModalOpen) && !user && window.google) {
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCallback
-      });
-      const target = isAuthModalOpen ? authModalGoogleRef : googleButtonRef;
-      if (target.current) {
-        window.google.accounts.id.renderButton(target.current, { theme: "outline", size: "large", width: 250 });
-      }
-    }
-  }, [isPostModalOpen, isAnalyticsOpen, isAuthModalOpen, user]);
-
-  const handleGoogleCallback = async (response: any) => {
+  const handleGoogleCallback = useCallback(async (response: any) => {
     try {
       const fbUser = await authService.loginWithToken(response.credential);
       if (fbUser) {
@@ -121,13 +125,8 @@ function App() {
       }
     } catch (err: any) {
       console.error("Login Error:", err);
-      if (err.code === 'auth/configuration-not-found') {
-        alert(`FALHA DE CONFIGURAÇÃO:\n\n1. O login do Google precisa ser ativado no Firebase Console.\n2. O domínio "${window.location.hostname}" deve ser autorizado em Authentication > Settings > Authorized domains.`);
-      } else {
-        alert("Erro ao conectar com o banco de dados: " + (err.code || "Tente novamente"));
-      }
     }
-  };
+  }, []);
 
   const handleLogout = async () => {
     if (window.confirm("Deseja sair?")) {
@@ -136,7 +135,7 @@ function App() {
     }
   };
 
-  const handleAddProduct = async (e: any) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) { setIsAuthModalOpen(true); return; }
     setIsSaving(true);
@@ -158,10 +157,7 @@ function App() {
       }
       closePostModal();
     } catch (err: any) {
-      console.error("Save Error:", err);
-      alert(err.code === 'permission-denied' 
-        ? "❌ Erro de Permissão: Verifique se suas 'Rules' no Firebase permitem gravação para " + user.email 
-        : "Erro ao salvar: " + err.message);
+      alert("Erro ao salvar: " + err.message);
     } finally { setIsSaving(false); }
   };
 
@@ -196,7 +192,7 @@ function App() {
     setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', description: '', isFeatured: false });
   };
 
-  const pagedProducts = processedProducts.slice(0, visibleCount);
+  const pagedProducts = useMemo(() => processedProducts.slice(0, visibleCount), [processedProducts, visibleCount]);
 
   if (selectedProduct) {
     return (
@@ -236,14 +232,12 @@ function App() {
             </div>
           )}
           
-          {/* SEÇÃO: PRODUTO EM DESTAQUE (VITRINE HERO) */}
           {!searchQuery && featuredProduct && (
             <section className="px-2 sm:px-0 mb-4 animate-fadeIn mt-2">
               <div 
                 onClick={() => setSelectedProduct(featuredProduct)}
                 className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
               >
-                {/* Imagem Clicável */}
                 <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-white p-4 sm:p-12 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50 overflow-hidden">
                   <img 
                     src={featuredProduct.imageUrl} 
@@ -252,7 +246,6 @@ function App() {
                   />
                 </div>
                 
-                {/* Copy e Informações */}
                 <div className="w-full md:w-1/2 p-5 sm:p-12 md:p-16 flex flex-col justify-center">
                   <div className="inline-flex items-center gap-2 bg-brand-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-3 w-fit shadow-lg shadow-brand-200">
                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -262,22 +255,19 @@ function App() {
                     {featuredProduct.title}
                   </h2>
                   <p className="text-gray-500 text-[13px] sm:text-base leading-relaxed mb-4 line-clamp-3 md:line-clamp-none font-medium">
-                    {featuredProduct.marketingPitch || featuredProduct.description}
+                    {String(featuredProduct.marketingPitch || featuredProduct.description || '')}
                   </p>
                   
-                  {/* Preço e Feedback - Mobile & Desktop */}
                   <div className="flex items-center gap-4 mb-4 md:mb-8">
                     <div className="text-2xl sm:text-4xl font-black text-gray-900">{featuredProduct.estimatedPrice}</div>
                     <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest border-l border-gray-200 pl-3">Melhor Preço<br/>Hoje</div>
                   </div>
                   
-                  {/* Botão Desktop */}
                   <button className="hidden md:flex w-full bg-brand-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-brand-100 group-hover:bg-brand-700 transition-all items-center justify-center gap-4 uppercase tracking-widest text-sm">
                     Ver Detalhes da Oferta
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </button>
 
-                  {/* Feedback Mobile */}
                   <div className="md:hidden text-[10px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-2">
                     Clique para detalhes
                     <svg className="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
@@ -287,7 +277,6 @@ function App() {
             </section>
           )}
 
-          {/* CARROSSEL */}
           <div className="mb-8"><TopProductsCarousel products={products} /></div>
 
           {isAnalyticsOpen && isUserAdmin && (
@@ -311,13 +300,14 @@ function App() {
             </div>
           </div>
           
-          {processedProducts.length > visibleCount && (
-            <div ref={observerTarget} className="w-full py-16 flex flex-col items-center justify-center gap-3">
-               <div className="w-7 h-7 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
-            </div>
-          )}
+          <div ref={observerTarget} className="w-full py-16 flex flex-col items-center justify-center gap-3 h-20">
+            {processedProducts.length > visibleCount && (
+              <div className="w-7 h-7 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+            )}
+          </div>
       </main>
       <Footer onOpenAdmin={() => user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true)} />
+      
       <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center justify-around h-16 sm:hidden px-4">
          <button onClick={() => window.scrollTo({top:0, behavior:'smooth'})} className="flex flex-col items-center gap-1 text-brand-600">
            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
@@ -331,7 +321,9 @@ function App() {
            <span className="text-[10px] font-bold">{user ? 'Sair' : 'Perfil'}</span>
          </button>
       </nav>
+
       <NotificationBell notifications={notifications} onClear={() => setNotifications([])} onMarkRead={() => {}} />
+
       {isPostModalOpen && (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center">
           <div className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-slideUp">
@@ -369,13 +361,14 @@ function App() {
           </div>
         </div>
       )}
+
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-white rounded-[2.5rem] p-10 max-w-xs w-full text-center animate-slideUp">
             <h3 className="text-2xl font-black mb-3 text-gray-900">Acesso Restrito</h3>
             <p className="text-[12px] text-gray-500 mb-10 leading-relaxed">Faça login com sua conta para gerenciar as ofertas da loja.</p>
-            <div ref={authModalGoogleRef} className="flex justify-center mb-8"></div>
-            <button onClick={() => setIsAuthModalOpen(false)} className="text-[11px] text-gray-400 font-black uppercase tracking-widest">Voltar</button>
+            <GoogleSignInButton onCallback={handleGoogleCallback} />
+            <button onClick={() => setIsAuthModalOpen(false)} className="mt-6 text-[11px] text-gray-400 font-black uppercase tracking-widest">Voltar</button>
           </div>
         </div>
       )}
