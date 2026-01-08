@@ -236,50 +236,50 @@ function App() {
             </div>
           )}
           
-          {/* SEÇÃO: PRODUTO EM DESTAQUE (VITRINE HERO) - AGORA NO TOPO */}
+          {/* SEÇÃO: PRODUTO EM DESTAQUE (VITRINE HERO) */}
           {!searchQuery && featuredProduct && (
-            <section className="px-2 sm:px-0 mb-6 animate-fadeIn mt-4">
+            <section className="px-2 sm:px-0 mb-4 animate-fadeIn mt-2">
               <div 
                 onClick={() => setSelectedProduct(featuredProduct)}
-                className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
+                className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
               >
                 {/* Imagem Clicável */}
-                <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-white p-8 sm:p-12 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50 overflow-hidden">
+                <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-white p-4 sm:p-12 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50 overflow-hidden">
                   <img 
                     src={featuredProduct.imageUrl} 
                     alt={featuredProduct.title} 
-                    className="max-w-full max-h-[400px] object-contain group-hover:scale-105 transition-transform duration-700" 
+                    className="max-w-full max-h-[300px] md:max-h-[400px] object-contain group-hover:scale-105 transition-transform duration-700" 
                   />
                 </div>
                 
                 {/* Copy e Informações */}
-                <div className="w-full md:w-1/2 p-8 sm:p-12 md:p-16 flex flex-col justify-center">
-                  <div className="inline-flex items-center gap-2 bg-brand-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 w-fit shadow-lg shadow-brand-200">
+                <div className="w-full md:w-1/2 p-5 sm:p-12 md:p-16 flex flex-col justify-center">
+                  <div className="inline-flex items-center gap-2 bg-brand-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-3 w-fit shadow-lg shadow-brand-200">
                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                    Oferta em Destaque
+                    Destaque
                   </div>
-                  <h2 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight tracking-tight uppercase mb-4">
+                  <h2 className="text-2xl sm:text-4xl font-black text-gray-900 leading-tight tracking-tight uppercase mb-2">
                     {featuredProduct.title}
                   </h2>
-                  <p className="text-gray-500 text-sm sm:text-base leading-relaxed mb-8 line-clamp-3 md:line-clamp-none font-medium">
+                  <p className="text-gray-500 text-[13px] sm:text-base leading-relaxed mb-4 line-clamp-3 md:line-clamp-none font-medium">
                     {featuredProduct.marketingPitch || featuredProduct.description}
                   </p>
                   
-                  {/* Preço: Visível apenas no Desktop */}
-                  <div className="hidden md:flex items-center gap-6 mb-8">
-                    <div className="text-4xl font-black text-gray-900">{featuredProduct.estimatedPrice}</div>
-                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest border-l border-gray-200 pl-4">Melhor Preço<br/>Encontrado</div>
+                  {/* Preço e Feedback - Mobile & Desktop */}
+                  <div className="flex items-center gap-4 mb-4 md:mb-8">
+                    <div className="text-2xl sm:text-4xl font-black text-gray-900">{featuredProduct.estimatedPrice}</div>
+                    <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest border-l border-gray-200 pl-3">Melhor Preço<br/>Hoje</div>
                   </div>
                   
-                  {/* Botão: Visível apenas no Desktop */}
+                  {/* Botão Desktop */}
                   <button className="hidden md:flex w-full bg-brand-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-brand-100 group-hover:bg-brand-700 transition-all items-center justify-center gap-4 uppercase tracking-widest text-sm">
                     Ver Detalhes da Oferta
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </button>
 
-                  {/* Feedback Visual para Mobile */}
-                  <div className="md:hidden mt-4 text-[10px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-2">
-                    Clique para ver mais detalhes
+                  {/* Feedback Mobile */}
+                  <div className="md:hidden text-[10px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-2">
+                    Clique para detalhes
                     <svg className="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </div>
                 </div>
@@ -287,7 +287,7 @@ function App() {
             </section>
           )}
 
-          {/* CARROSSEL - AGORA ABAIXO DO DESTAQUE */}
+          {/* CARROSSEL */}
           <div className="mb-8"><TopProductsCarousel products={products} /></div>
 
           {isAnalyticsOpen && isUserAdmin && (
