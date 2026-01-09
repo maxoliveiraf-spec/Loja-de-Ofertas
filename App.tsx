@@ -56,6 +56,7 @@ function App() {
     estimatedPrice: '', 
     category: 'Geral', 
     imageUrl: '', 
+    additionalImages: [] as string[],
     description: '',
     isFeatured: false
   });
@@ -172,6 +173,21 @@ function App() {
     }
   };
 
+  const handleAdditionalImageChange = (index: number, value: string) => {
+    const updated = [...formData.additionalImages];
+    updated[index] = value;
+    setFormData({ ...formData, additionalImages: updated });
+  };
+
+  const addImageField = () => {
+    setFormData({ ...formData, additionalImages: [...formData.additionalImages, ''] });
+  };
+
+  const removeImageField = (index: number) => {
+    const updated = formData.additionalImages.filter((_, i) => i !== index);
+    setFormData({ ...formData, additionalImages: updated });
+  };
+
   const openEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData({
@@ -180,6 +196,7 @@ function App() {
       estimatedPrice: product.estimatedPrice || '',
       category: product.category,
       imageUrl: product.imageUrl || '',
+      additionalImages: product.additionalImages || [],
       description: product.description || '',
       isFeatured: product.isFeatured || false
     });
@@ -189,7 +206,7 @@ function App() {
   const closePostModal = () => {
     setIsPostModalOpen(false);
     setEditingProduct(null);
-    setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', description: '', isFeatured: false });
+    setFormData({ url: '', title: '', estimatedPrice: '', category: 'Geral', imageUrl: '', additionalImages: [], description: '', isFeatured: false });
   };
 
   const pagedProducts = useMemo(() => processedProducts.slice(0, visibleCount), [processedProducts, visibleCount]);
@@ -219,57 +236,60 @@ function App() {
         searchQuery={searchQuery}
         onSearchChange={(q) => { setSearchQuery(q); setVisibleCount(INITIAL_ITEMS); }}
       />
+      
+      {user && (
+        <div className="bg-gray-900 px-4 py-2 flex justify-between items-center text-white/70">
+           <div className="flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 rounded-full ${isUserAdmin ? 'bg-green-400' : 'bg-blue-400'}`}></div>
+              <span className="text-[9px] font-black uppercase tracking-widest leading-none pt-0.5">
+                {user.email} {isUserAdmin && <span className="text-green-400 font-black ml-1">[ADMIN]</span>}
+              </span>
+           </div>
+           <button onClick={handleLogout} className="text-[9px] font-black uppercase tracking-widest hover:text-white transition-colors">Sair</button>
+        </div>
+      )}
+
       <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden sm:px-4">
-          {user && (
-            <div className="px-4 py-2 bg-brand-50 flex justify-between items-center border-b border-brand-100 sm:rounded-b-2xl mb-4 animate-fadeIn">
-               <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isUserAdmin ? 'bg-green-500' : 'bg-brand-500'}`}></div>
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                    Logado: <span className="text-gray-900">{user.email}</span> {isUserAdmin && <span className="text-green-600 font-black ml-1">[ADMIN]</span>}
-                  </span>
-               </div>
-               <button onClick={handleLogout} className="text-[10px] font-black text-red-500 uppercase tracking-widest">Sair</button>
-            </div>
-          )}
           
           {!searchQuery && featuredProduct && (
-            <section className="px-2 sm:px-0 mb-4 animate-fadeIn mt-2">
+            <section className="px-2 sm:px-0 mb-8 animate-fadeIn mt-4">
               <div 
                 onClick={() => setSelectedProduct(featuredProduct)}
-                className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
+                className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col md:flex-row cursor-pointer group active:scale-[0.99] transition-all"
               >
-                <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-white p-4 sm:p-12 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50 overflow-hidden">
+                <div className="w-full md:w-5/12 aspect-square md:aspect-auto bg-white p-6 sm:p-12 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-50">
                   <img 
                     src={featuredProduct.imageUrl} 
                     alt={featuredProduct.title} 
-                    className="max-w-full max-h-[300px] md:max-h-[400px] object-contain group-hover:scale-105 transition-transform duration-700" 
+                    className="max-w-full max-h-[250px] md:max-h-[350px] object-contain group-hover:scale-105 transition-transform duration-700" 
                   />
                 </div>
                 
-                <div className="w-full md:w-1/2 p-5 sm:p-12 md:p-16 flex flex-col justify-center">
-                  <div className="inline-flex items-center gap-2 bg-brand-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-3 w-fit shadow-lg shadow-brand-200">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                    Destaque
+                <div className="w-full md:w-7/12 p-8 sm:p-14 flex flex-col justify-center">
+                  <div className="inline-flex items-center gap-2 bg-gray-900 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest mb-4 w-fit">
+                    🔥 Oferta do Dia
                   </div>
-                  <h2 className="text-2xl sm:text-4xl font-black text-gray-900 leading-tight tracking-tight uppercase mb-2">
+                  <h2 className="text-xl sm:text-3xl font-black text-gray-900 leading-tight tracking-tighter uppercase mb-3">
                     {featuredProduct.title}
                   </h2>
-                  <p className="text-gray-500 text-[13px] sm:text-base leading-relaxed mb-4 line-clamp-3 md:line-clamp-none font-medium">
+                  <p className="text-gray-500 text-[11px] sm:text-sm leading-relaxed mb-6 line-clamp-3 font-medium">
                     {String(featuredProduct.marketingPitch || featuredProduct.description || '')}
                   </p>
                   
-                  <div className="flex items-center gap-4 mb-4 md:mb-8">
-                    <div className="text-2xl sm:text-4xl font-black text-gray-900">{featuredProduct.estimatedPrice}</div>
-                    <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest border-l border-gray-200 pl-3">Melhor Preço<br/>Hoje</div>
+                  <div className="flex items-center gap-6 mb-8">
+                    <div>
+                      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Menor Preço Encontrado</div>
+                      <div className="text-3xl sm:text-4xl font-black text-success-500">{featuredProduct.estimatedPrice}</div>
+                    </div>
                   </div>
                   
-                  <button className="hidden md:flex w-full bg-brand-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-brand-100 group-hover:bg-brand-700 transition-all items-center justify-center gap-4 uppercase tracking-widest text-sm">
-                    Ver Detalhes da Oferta
+                  <button className="hidden md:flex w-full bg-success-500 text-white font-black py-5 rounded-2xl shadow-xl shadow-success-100 group-hover:bg-success-600 transition-all items-center justify-center gap-3 uppercase tracking-widest text-xs">
+                    Comparar Preços Agora
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </button>
 
-                  <div className="md:hidden text-[10px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-2">
-                    Clique para detalhes
+                  <div className="md:hidden text-[10px] font-black text-success-500 uppercase tracking-widest flex items-center gap-2">
+                    Toque para ver detalhes
                     <svg className="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </div>
                 </div>
@@ -277,21 +297,21 @@ function App() {
             </section>
           )}
 
-          <div className="mb-8"><TopProductsCarousel products={products} /></div>
+          <div className="mb-10"><TopProductsCarousel products={products} /></div>
 
           {isAnalyticsOpen && isUserAdmin && (
-            <div className="m-4 p-6 bg-white rounded-3xl border border-gray-100 shadow-xl animate-fadeIn">
-              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-xl font-bold text-gray-900">Métricas Administrativas</h2>
-                 <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 p-2">✕</button>
+            <div className="m-4 p-8 bg-white rounded-[2rem] border border-gray-100 shadow-xl animate-fadeIn">
+              <div className="flex justify-between items-center mb-8">
+                 <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">Métricas Guia Pro</h2>
+                 <button onClick={() => setIsAnalyticsOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-2">✕</button>
               </div>
               <AnalyticsDashboard products={products} />
             </div>
           )}
           
-          <div className="px-2 sm:px-0">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 ml-2">Explorar Outras Ofertas</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-6">
+          <div className="px-3 sm:px-0">
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 ml-2">Vitrine de Oportunidades</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
               {pagedProducts.map(p => (
                 <div key={p.id} className="h-full">
                   <ProductCard product={p} currentUser={user} onAuthRequired={() => setIsAuthModalOpen(true)} onEdit={openEdit} onSelect={(product) => setSelectedProduct(product)} isAdmin={isUserAdmin} />
@@ -302,23 +322,23 @@ function App() {
           
           <div ref={observerTarget} className="w-full py-16 flex flex-col items-center justify-center gap-3 h-20">
             {processedProducts.length > visibleCount && (
-              <div className="w-7 h-7 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+              <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin"></div>
             )}
           </div>
       </main>
       <Footer onOpenAdmin={() => user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true)} />
       
-      <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center justify-around h-16 sm:hidden px-4">
-         <button onClick={() => window.scrollTo({top:0, behavior:'smooth'})} className="flex flex-col items-center gap-1 text-brand-600">
-           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-           <span className="text-[10px] font-bold">Início</span>
+      <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center justify-around h-16 sm:hidden px-4 shadow-2xl">
+         <button onClick={() => window.scrollTo({top:0, behavior:'smooth'})} className="flex flex-col items-center gap-1 text-gray-900">
+           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+           <span className="text-[9px] font-black uppercase tracking-widest">Home</span>
          </button>
-         <button onClick={() => { setEditingProduct(null); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }} className="flex flex-col items-center justify-center -translate-y-4 w-12 h-12 bg-brand-600 text-white rounded-full shadow-lg">
+         <button onClick={() => { setEditingProduct(null); user ? setIsPostModalOpen(true) : setIsAuthModalOpen(true); }} className="flex flex-col items-center justify-center -translate-y-4 w-12 h-12 bg-gray-900 text-white rounded-full shadow-lg active:scale-90 transition-transform">
            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
          </button>
          <button onClick={() => !user ? setIsAuthModalOpen(true) : handleLogout()} className="flex flex-col items-center gap-1 text-gray-400">
-           {user ? <img src={user.photoURL} className="w-6 h-6 rounded-full border border-gray-200" alt="" /> : <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>}
-           <span className="text-[10px] font-bold">{user ? 'Sair' : 'Perfil'}</span>
+           {user ? <img src={user.photoURL} className="w-5 h-5 rounded-full border border-gray-200" alt="" /> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>}
+           <span className="text-[9px] font-black uppercase tracking-widest">{user ? 'Sair' : 'Perfil'}</span>
          </button>
       </nav>
 
@@ -328,34 +348,73 @@ function App() {
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center">
           <div className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-slideUp">
              <div className="p-6 border-b flex justify-between items-center bg-gray-50/50">
-               <h2 className="font-black text-gray-900 text-lg uppercase tracking-tight">{editingProduct ? 'Editar Oferta' : 'Nova Oferta'}</h2>
+               <h2 className="font-black text-gray-900 text-sm uppercase tracking-tight">{editingProduct ? 'Editar Oferta' : 'Nova Oferta'}</h2>
                <button onClick={closePostModal} className="p-2 text-gray-500">✕</button>
              </div>
-             <form onSubmit={handleAddProduct} className="p-6 sm:p-8 space-y-5 max-h-[80vh] overflow-y-auto pb-10 sm:pb-8">
-                <input required type="url" placeholder="Link de Afiliado..." value={formData.url} onChange={(e) => handleUrlChange(e.target.value)} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm outline-none focus:border-brand-500" />
-                {isEnriching && <p className="text-[10px] text-brand-600 animate-pulse font-bold">IA Analisando Link...</p>}
-                <input required placeholder="Título do Produto" value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
-                <input required placeholder="Preço (R$ 0,00)" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
+             <form onSubmit={handleAddProduct} className="p-6 sm:p-8 space-y-4 max-h-[80vh] overflow-y-auto pb-10 sm:pb-8">
+                <div className="space-y-1">
+                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Link de Afiliado</label>
+                   <input required type="url" placeholder="https://..." value={formData.url} onChange={(e) => handleUrlChange(e.target.value)} className="w-full border border-gray-200 p-4 rounded-2xl text-xs outline-none focus:border-gray-900 transition-all" />
+                </div>
+                {isEnriching && <p className="text-[9px] text-blue-600 animate-pulse font-black uppercase tracking-widest">Consultando IA...</p>}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Título</label>
+                    <input required placeholder="..." value={formData.title} onChange={(e)=>setFormData({...formData, title: e.target.value})} className="w-full border border-gray-200 p-4 rounded-2xl text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Preço</label>
+                    <input required placeholder="R$ 0,00" value={formData.estimatedPrice} onChange={(e)=>setFormData({...formData, estimatedPrice: e.target.value})} className="w-full border border-gray-200 p-4 rounded-2xl text-xs" />
+                  </div>
+                </div>
                 
                 {isUserAdmin && (
-                  <label className="flex items-center gap-3 p-4 bg-brand-50 rounded-2xl border-2 border-brand-100 cursor-pointer">
+                  <label className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-200 cursor-pointer transition-colors hover:bg-white">
                     <input 
                       type="checkbox" 
                       checked={formData.isFeatured} 
                       onChange={(e) => setFormData({...formData, isFeatured: e.target.checked})}
-                      className="w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500" 
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" 
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-black text-brand-900 uppercase">Destaque na Vitrine</span>
-                      <span className="text-[10px] text-brand-700 font-bold">Aparecerá com foto grande no topo da página.</span>
+                      <span className="text-[10px] font-black text-gray-900 uppercase">Banner de Destaque</span>
+                      <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">Colocar produto no topo da vitrine.</span>
                     </div>
                   </label>
                 )}
 
-                <textarea placeholder="Pequena descrição ou destaques..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm min-h-[100px]" />
-                <input required type="url" placeholder="URL da Imagem do Produto" value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border-2 border-gray-100 p-4 rounded-2xl text-sm" />
-                <button disabled={isSaving} type="submit" className="w-full bg-brand-600 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest disabled:opacity-50 active:scale-95 transition-all">
-                  {isSaving ? 'Salvando...' : 'Publicar Oferta'}
+                <div className="space-y-1">
+                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Descrição</label>
+                   <textarea placeholder="Características principais..." value={formData.description} onChange={(e)=>setFormData({...formData, description: e.target.value})} className="w-full border border-gray-200 p-4 rounded-2xl text-xs min-h-[80px]" />
+                </div>
+
+                <div className="space-y-4 pt-2 border-t border-gray-50">
+                   <div className="flex justify-between items-center">
+                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Fotos do Produto</label>
+                     <button type="button" onClick={addImageField} className="text-[9px] font-black text-brand-600 uppercase border border-brand-100 px-2 py-1 rounded-lg">Adicionar Foto</button>
+                   </div>
+                   
+                   <div className="space-y-2">
+                     <div className="space-y-1">
+                        <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest ml-1">Foto Principal (Capa)</span>
+                        <input required type="url" placeholder="URL da Foto Principal..." value={formData.imageUrl} onChange={(e)=>setFormData({...formData, imageUrl: e.target.value})} className="w-full border border-gray-200 p-4 rounded-2xl text-xs" />
+                     </div>
+                     
+                     {formData.additionalImages.map((img, idx) => (
+                       <div key={idx} className="space-y-1 relative group">
+                          <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest ml-1">Foto Extra {idx + 1}</span>
+                          <div className="flex gap-2">
+                            <input type="url" placeholder="URL da Foto Extra..." value={img} onChange={(e) => handleAdditionalImageChange(idx, e.target.value)} className="flex-1 border border-gray-200 p-4 rounded-2xl text-xs" />
+                            <button type="button" onClick={() => removeImageField(idx)} className="p-2 text-red-400 hover:text-red-600">✕</button>
+                          </div>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+
+                <button disabled={isSaving} type="submit" className="w-full bg-gray-900 text-white font-black py-5 rounded-2xl uppercase text-[10px] tracking-[0.2em] disabled:opacity-50 active:scale-95 transition-all shadow-xl shadow-gray-200">
+                  {isSaving ? 'Processando...' : 'Salvar e Publicar'}
                 </button>
              </form>
           </div>
@@ -364,11 +423,11 @@ function App() {
 
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] p-10 max-w-xs w-full text-center animate-slideUp">
-            <h3 className="text-2xl font-black mb-3 text-gray-900">Acesso Restrito</h3>
-            <p className="text-[12px] text-gray-500 mb-10 leading-relaxed">Faça login com sua conta para gerenciar as ofertas da loja.</p>
+          <div className="bg-white rounded-[2.5rem] p-10 max-w-xs w-full text-center animate-slideUp shadow-2xl">
+            <h3 className="text-xl font-black mb-2 text-gray-900 uppercase tracking-tighter">Acesso Guia Pro</h3>
+            <p className="text-[10px] text-gray-400 mb-8 leading-relaxed font-bold uppercase tracking-widest">Faça login para gerenciar as ofertas verificadas.</p>
             <GoogleSignInButton onCallback={handleGoogleCallback} />
-            <button onClick={() => setIsAuthModalOpen(false)} className="mt-6 text-[11px] text-gray-400 font-black uppercase tracking-widest">Voltar</button>
+            <button onClick={() => setIsAuthModalOpen(false)} className="mt-8 text-[9px] text-gray-300 hover:text-gray-900 transition-colors font-black uppercase tracking-widest">Voltar</button>
           </div>
         </div>
       )}

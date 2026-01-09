@@ -38,75 +38,71 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, currentUser, 
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product.title)}&background=random&color=fff`;
+    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product.title)}&background=f1f5f9&color=334155`;
     setImageLoaded(true);
   };
 
-  // Lógica de Permissão Atualizada: Gestor pode editar TUDO. Autores editam apenas os próprios.
   const canEdit = isAdmin || (currentUser && product.authorId === currentUser.uid);
   const canDelete = isAdmin || (currentUser && product.authorId === currentUser.uid);
 
   return (
     <div 
-      className="bg-white sm:rounded-2xl border-gray-100 overflow-hidden flex flex-col h-full relative group cursor-pointer active:scale-[0.98] transition-all" 
+      className="bg-white rounded-3xl border border-gray-100 overflow-hidden flex flex-col h-full relative group cursor-pointer active:scale-[0.98] transition-all shadow-sm hover:shadow-md" 
       onClick={handleOpenDetail}
     >
-      {/* Menu Administrativo - Contextual para Gestor ou Autor */}
       {(canEdit || canDelete) && (
-        <div className="absolute right-2 top-2 z-30" ref={optionsRef}>
+        <div className="absolute right-3 top-3 z-30" ref={optionsRef}>
           <button 
             onClick={(e) => { e.stopPropagation(); setShowOptions(!showOptions); }}
-            className="bg-white/80 backdrop-blur-md text-gray-800 p-1.5 rounded-full shadow-lg active:scale-90 transition-all flex items-center justify-center min-w-[32px] min-h-[32px]"
+            className="bg-white/90 backdrop-blur-md text-gray-800 w-8 h-8 rounded-full shadow-md active:scale-90 transition-all flex items-center justify-center border border-gray-100"
           >
              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
           </button>
           {showOptions && (
-            <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden animate-fadeIn z-50">
+            <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden animate-fadeIn z-50">
               {canEdit && (
-                <button onClick={(e) => { e.stopPropagation(); onEdit?.(product); setShowOptions(false); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 border-b border-gray-50">Editar</button>
+                <button onClick={(e) => { e.stopPropagation(); onEdit?.(product); setShowOptions(false); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase text-gray-700 hover:bg-gray-50 border-b border-gray-50">Editar</button>
               )}
               {canDelete && (
-                <button onClick={(e) => { e.stopPropagation(); if(window.confirm("Excluir oferta permanentemente?")) productService.delete(product.id); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50">Excluir</button>
+                <button onClick={(e) => { e.stopPropagation(); if(window.confirm("Excluir?")) productService.delete(product.id); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase text-red-600 hover:bg-red-50">Excluir</button>
               )}
             </div>
           )}
         </div>
       )}
 
-      {/* Imagem do Produto */}
-      <div className="aspect-[4/5] bg-gray-50 flex items-center justify-center relative overflow-hidden sm:rounded-xl m-1">
-        {!imageLoaded && <div className="absolute inset-0 bg-gray-100 animate-pulse"></div>}
+      <div className="aspect-square bg-white flex items-center justify-center relative overflow-hidden p-4">
+        {!imageLoaded && <div className="absolute inset-0 bg-gray-50 animate-pulse"></div>}
         <img 
-          src={product.imageUrl || `https://picsum.photos/seed/${product.id}/600/600`} 
+          src={product.imageUrl} 
           alt={product.title} 
-          className={`w-full h-full object-contain mix-blend-multiply p-2 transition-all duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'} group-hover:scale-105`}
+          className={`w-full h-full object-contain transition-all duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'} group-hover:scale-110`}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
         />
-        
-        {product.estimatedPrice && (
-          <div className="absolute bottom-2 left-2 bg-brand-600/90 backdrop-blur-sm text-white px-2 py-1 rounded-lg text-[10px] sm:text-xs font-black shadow-lg z-10 tracking-tight">
-            {product.estimatedPrice}
-          </div>
-        )}
       </div>
 
-      {/* Info & CTA */}
-      <div className="p-3 flex flex-col flex-1 gap-2">
-        <div className="min-h-[32px]">
-          <h3 className="text-[12px] sm:text-[14px] font-bold text-gray-800 leading-tight line-clamp-2">
-            {product.title}
-          </h3>
-        </div>
+      <div className="p-4 flex flex-col flex-1 bg-white">
+        <h3 className="text-[11px] font-bold text-gray-900 leading-snug line-clamp-2 uppercase h-8 mb-3">
+          {product.title}
+        </h3>
         
-        {/* Botão visível apenas no Desktop (sm e acima) */}
-        <div className="mt-auto hidden sm:block">
-           <button 
+        <div className="mt-auto">
+          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">Melhor Preço</div>
+          <div className="text-sm font-black text-success-500">
+            {product.estimatedPrice}
+          </div>
+          
+          <div className="mt-3 block sm:hidden text-[9px] font-black text-brand-600 uppercase tracking-widest">
+            Análise do Preço →
+          </div>
+          
+          <button 
             type="button"
-            className="w-full h-10 bg-gray-900 text-white text-[10px] font-black px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-700 active:scale-95 transition-all uppercase tracking-widest"
+            className="hidden sm:flex mt-3 w-full h-9 bg-gray-50 border border-gray-100 text-gray-900 text-[9px] font-black px-4 rounded-xl items-center justify-center gap-2 hover:bg-gray-900 hover:text-white active:scale-95 transition-all uppercase tracking-widest"
           >
-            Ver Detalhes
+            Comparar Preços
           </button>
         </div>
       </div>

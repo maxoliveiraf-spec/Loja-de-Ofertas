@@ -23,6 +23,7 @@ export interface Product {
   category: string;
   estimatedPrice?: string;
   imageUrl?: string;
+  additionalImages?: string[]; // Array de URLs de fotos adicionais
   videoUrl?: string;
   imageSearchTerm?: string;
   status: ProductStatus;
