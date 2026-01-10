@@ -26,6 +26,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
   const [visibleDiscoverItems, setVisibleDiscoverItems] = useState(6);
   const infiniteRef = useRef<HTMLDivElement>(null);
 
+  // Verifica se o preço é "longo" (mais de 3 dígitos antes da vírgula) para ajustar o layout mobile
+  const isLongPrice = useMemo(() => {
+    if (!product.estimatedPrice) return false;
+    // Remove símbolos e foca na parte inteira antes da vírgula
+    const rawValue = product.estimatedPrice.replace(/[^\d,]/g, '').split(',')[0];
+    return rawValue.length > 3;
+  }, [product.estimatedPrice]);
+
   const allImages = useMemo(() => {
     const images = [product.imageUrl || ''];
     if (product.additionalImages) {
@@ -138,16 +146,18 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
               <h1 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight uppercase tracking-tight">{product.title}</h1>
             </div>
             
-            {/* Bloco de Preço Otimizado para Mobile */}
-            <div className="flex items-center justify-between bg-gray-50/80 p-5 sm:p-6 rounded-[2rem] border border-gray-100">
-              <div className="flex flex-col gap-1">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">Menor preço via</span>
-                <span className={`text-[10px] font-black uppercase mb-1 ${store.color}`}>{store.name}</span>
-                <div className="text-2xl sm:text-3xl font-black text-success-500 leading-none">{product.estimatedPrice}</div>
+            {/* Bloco de Preço Otimizado para Mobile com Redução Dinâmica */}
+            <div className="flex items-center justify-between bg-gray-50/80 p-5 sm:p-6 rounded-[2rem] border border-gray-100 gap-2">
+              <div className="flex flex-col gap-1 min-w-0 flex-1">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none truncate">Menor preço via</span>
+                <span className={`text-[10px] font-black uppercase mb-1 truncate ${store.color}`}>{store.name}</span>
+                <div className={`font-black text-success-500 leading-none transition-all ${isLongPrice ? 'text-xl sm:text-3xl' : 'text-2xl sm:text-3xl'}`}>
+                  {product.estimatedPrice}
+                </div>
               </div>
               <button 
                 onClick={handleBuy}
-                className="bg-success-500 text-white font-black px-5 py-4 sm:px-8 sm:py-4 rounded-2xl text-[10px] sm:text-xs uppercase tracking-[0.15em] shadow-xl shadow-success-100 active:scale-95 transition-all flex items-center justify-center"
+                className="bg-success-500 text-white font-black px-5 py-4 sm:px-8 sm:py-4 rounded-2xl text-[10px] sm:text-xs uppercase tracking-[0.15em] shadow-xl shadow-success-100 active:scale-95 transition-all flex items-center justify-center flex-shrink-0"
               >
                 Ir à Loja
               </button>
@@ -165,16 +175,18 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, relatedPr
             onClick={handleBuy}
             className="bg-white rounded-3xl border-2 border-success-500/30 p-5 flex items-center justify-between cursor-pointer group hover:bg-success-50/20 transition-all shadow-sm"
           >
-             <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-full ${store.bg} flex items-center justify-center`}>
+             <div className="flex items-center gap-4 min-w-0">
+                <div className={`w-12 h-12 rounded-full flex-shrink-0 ${store.bg} flex items-center justify-center`}>
                    <svg className={`w-6 h-6 ${store.color}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                 </div>
-                <div>
-                   <div className="text-sm font-black text-gray-900">{product.estimatedPrice} <span className="text-[10px] text-gray-400 font-normal ml-1">à vista</span></div>
-                   <div className="text-[10px] font-bold text-gray-400 uppercase">Vendido por <span className="text-gray-900">{store.name}</span></div>
+                <div className="min-w-0">
+                   <div className={`font-black text-gray-900 truncate ${isLongPrice ? 'text-xs sm:text-sm' : 'text-sm'}`}>
+                    {product.estimatedPrice} <span className="text-[10px] text-gray-400 font-normal ml-1">à vista</span>
+                   </div>
+                   <div className="text-[10px] font-bold text-gray-400 uppercase truncate">Vendido por <span className="text-gray-900">{store.name}</span></div>
                 </div>
              </div>
-             <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2 flex-shrink-0">
                 <span className="hidden sm:block text-[10px] font-black text-success-500 uppercase tracking-widest">Ir para Loja</span>
                 <div className="w-10 h-10 bg-success-500 text-white rounded-xl flex items-center justify-center shadow-md">
                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
